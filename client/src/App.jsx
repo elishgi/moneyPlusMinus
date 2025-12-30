@@ -2,6 +2,20 @@ import { useEffect, useMemo, useState } from "react";
 
 const STORAGE_KEY = "budget-landing-v1";
 
+const defaultIncomeTemplates = [
+  { label: "משכורת 1" },
+  { label: "משכורת 2" },
+];
+
+const defaultExpenseTemplates = [
+  { label: "שכירות", lockDetails: true },
+  { label: "חשבונות (מים, חשמל וכו)", lockDetails: false },
+  { label: "מנויים", lockDetails: false },
+  { label: "מעשרות", lockDetails: false },
+];
+
+const defaultCreditTemplates = [{ label: "כרטיס אשראי 1", lockDetails: true }];
+
 function uid() {
   return Math.random().toString(16).slice(2) + Date.now().toString(16);
 }
@@ -29,6 +43,56 @@ function calcItemAmount(item) {
 
 function calcSum(items) {
   return items.reduce((sum, item) => sum + calcItemAmount(item), 0);
+}
+
+function normalizeDetails(details) {
+  if (!Array.isArray(details)) return [];
+
+  return details
+    .filter((detail) => detail && typeof detail === "object")
+    .map((detail) => ({
+      id: detail.id || uid(),
+      label: typeof detail.label === "string" ? detail.label : "",
+      amount:
+        typeof detail.amount === "number" || typeof detail.amount === "string"
+          ? String(detail.amount)
+          : "",
+    }));
+}
+
+function normalizeItems(items, buildDefaults) {
+  if (!Array.isArray(items)) return buildDefaults();
+
+  const normalized = items
+    .filter((item) => item && typeof item === "object")
+    .map((item, idx) => ({
+      id: item.id || uid(),
+      label: typeof item.label === "string" ? item.label : `שורה ${idx + 1}`,
+      amount:
+        typeof item.amount === "number" || typeof item.amount === "string"
+          ? String(item.amount)
+          : "",
+      details: normalizeDetails(item.details),
+      lockDetails: Boolean(item.lockDetails),
+      showDetails: Boolean(item.showDetails && !item.lockDetails),
+    }))
+    .map((item) =>
+      item.lockDetails || item.label === "שכירות"
+        ? { ...item, showDetails: false }
+        : item
+    );
+
+  return normalized.length > 0 ? normalized : buildDefaults();
+}
+
+function buildDefaultItems(templates) {
+  return templates.map((template) => ({
+    id: uid(),
+    label: template.label,
+    amount: "",
+    details: [],
+    lockDetails: Boolean(template.lockDetails),
+  }));
 }
 
 function Section({ title, subtitle, items, setItems, kind, createItem }) {
@@ -299,21 +363,17 @@ export default function App() {
     return `${d.toLocaleString("he-IL", { month: "long" })} ${d.getFullYear()}`;
   });
 
-  const [incomes, setIncomes] = useState(() => [
-    { id: uid(), label: "משכורת 1", amount: "", details: [] },
-    { id: uid(), label: "משכורת 2", amount: "", details: [] },
-  ]);
+  const [incomes, setIncomes] = useState(() =>
+    buildDefaultItems(defaultIncomeTemplates)
+  );
 
-  const [expenses, setExpenses] = useState(() => [
-    { id: uid(), label: "שכירות", amount: "", details: [], lockDetails: true },
-    { id: uid(), label: "חשבונות (מים, חשמל וכו)", amount: "", details: [] },
-    { id: uid(), label: "מנויים", amount: "", details: [] },
-    { id: uid(), label: "מעשרות", amount: "", details: [] },
-  ]);
+  const [expenses, setExpenses] = useState(() =>
+    buildDefaultItems(defaultExpenseTemplates)
+  );
 
-  const [previousCredit, setPreviousCredit] = useState(() => [
-    { id: uid(), label: "כרטיס אשראי 1", amount: "", details: [], lockDetails: true },
-  ]);
+  const [previousCredit, setPreviousCredit] = useState(() =>
+    buildDefaultItems(defaultCreditTemplates)
+  );
 
   const [didCalculate, setDidCalculate] = useState(false);
 
@@ -325,9 +385,18 @@ export default function App() {
       const parsed = JSON.parse(raw);
 
       if (parsed?.monthLabel) setMonthLabel(parsed.monthLabel);
-      if (Array.isArray(parsed?.incomes)) setIncomes(parsed.incomes);
-      if (Array.isArray(parsed?.expenses)) setExpenses(parsed.expenses);
-      if (Array.isArray(parsed?.previousCredit)) setPreviousCredit(parsed.previousCredit);
+
+      setIncomes(() =>
+        normalizeItems(parsed?.incomes, () => buildDefaultItems(defaultIncomeTemplates))
+      );
+      setExpenses(() =>
+        normalizeItems(parsed?.expenses, () => buildDefaultItems(defaultExpenseTemplates))
+      );
+      setPreviousCredit(() =>
+        normalizeItems(parsed?.previousCredit, () =>
+          buildDefaultItems(defaultCreditTemplates)
+        )
+      );
     } catch {
       // מתעלמים — אם יש JSON לא תקין
     }
@@ -404,18 +473,9 @@ export default function App() {
       const d = new Date();
       return `${d.toLocaleString("he-IL", { month: "long" })} ${d.getFullYear()}`;
     });
-    setIncomes([
-      { id: uid(), label: "משכורת 1", amount: "", details: [] },
-      { id: uid(), label: "משכורת 2", amount: "", details: [] },
-    ]);
-    setExpenses([
-      { id: uid(), label: "שכירות", amount: "", details: [], lockDetails: true },
-      { id: uid(), label: "מנויים", amount: "", details: [] },
-      { id: uid(), label: "חשמל / מים", amount: "", details: [] },
-    ]);
-    setPreviousCredit([
-      { id: uid(), label: "כרטיס אשראי 1", amount: "", details: [], lockDetails: true },
-    ]);
+    setIncomes(buildDefaultItems(defaultIncomeTemplates));
+    setExpenses(buildDefaultItems(defaultExpenseTemplates));
+    setPreviousCredit(buildDefaultItems(defaultCreditTemplates));
     localStorage.removeItem(STORAGE_KEY);
   }
 
