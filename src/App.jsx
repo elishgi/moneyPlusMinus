@@ -43,7 +43,7 @@ function Section({ title, subtitle, items, setItems, kind }) {
   }
 
   function addRow() {
-    const defaultLabel = isIncome ? "משכורת" : "הוצאה חדשה";
+    const defaultLabel = isIncome ? "משכורת" : "שכירות";
     setItems((prev) => [
       ...prev,
       { id: uid(), label: defaultLabel, amount: "", details: [] },
@@ -68,12 +68,7 @@ function Section({ title, subtitle, items, setItems, kind }) {
   function addDetailRow(parentId) {
     setItems((prev) =>
       prev.map((item) => {
-        if (
-          item.id !== parentId ||
-          item.lockDetails ||
-          item.label === "שכירות"
-        )
-          return item;
+        if (item.id !== parentId) return item;
 
         const nextDetails = [...(item.details || []), { id: uid(), label: "", amount: "" }];
         return {
@@ -89,12 +84,7 @@ function Section({ title, subtitle, items, setItems, kind }) {
   function updateDetailRow(parentId, detailId, patch) {
     setItems((prev) =>
       prev.map((item) => {
-        if (
-          item.id !== parentId ||
-          item.lockDetails ||
-          item.label === "שכירות"
-        )
-          return item;
+        if (item.id !== parentId) return item;
 
         const nextDetails = (item.details || []).map((detail) =>
           detail.id === detailId ? { ...detail, ...patch } : detail
@@ -112,12 +102,7 @@ function Section({ title, subtitle, items, setItems, kind }) {
   function removeDetailRow(parentId, detailId) {
     setItems((prev) =>
       prev.map((item) => {
-        if (
-          item.id !== parentId ||
-          item.lockDetails ||
-          item.label === "שכירות"
-        )
-          return item;
+        if (item.id !== parentId) return item;
 
         const nextDetails = (item.details || []).filter(
           (detail) => detail.id !== detailId
@@ -174,22 +159,14 @@ function Section({ title, subtitle, items, setItems, kind }) {
                 }
                 placeholder="0"
                 onChange={(e) => updateRow(row.id, { amount: e.target.value })}
-                disabled={
-                  !isIncome &&
-                  Array.isArray(row.details) &&
-                  row.details.length > 0 &&
-                  !(row.lockDetails || row.label === "שכירות")
-                }
+                disabled={!isIncome && Array.isArray(row.details) && row.details.length > 0}
               />
-              {!isIncome &&
-                Array.isArray(row.details) &&
-                row.details.length > 0 &&
-                !(row.lockDetails || row.label === "שכירות") && (
-                  <span className="helperText">הסכום מחושב מסך הפריטים בפירוט.</span>
-                )}
+              {!isIncome && Array.isArray(row.details) && row.details.length > 0 && (
+                <span className="helperText">הסכום מחושב מסך הפריטים בפירוט.</span>
+              )}
             </label>
 
-            {!isIncome && !(row.lockDetails || row.label === "שכירות") && (
+            {!isIncome && (
               <button
                 className="btn btnGhost btnSmall"
                 type="button"
@@ -209,7 +186,7 @@ function Section({ title, subtitle, items, setItems, kind }) {
               ✕
             </button>
 
-            {!isIncome && !(row.lockDetails || row.label === "שכירות") && row.showDetails && (
+            {!isIncome && row.showDetails && (
               <div className="detailBox">
                 <div className="detailBoxHeader">
                   <div className="detailTitle">פירוט עבור {row.label || "הוצאה"}</div>
@@ -303,7 +280,7 @@ export default function App() {
   ]);
 
   const [expenses, setExpenses] = useState(() => [
-    { id: uid(), label: "שכירות", amount: "", details: [], lockDetails: true },
+    { id: uid(), label: "שכירות", amount: "", details: [] },
     { id: uid(), label: "חשבונות (מים, חשמל וכו)", amount: "", details: [] },
     { id: uid(), label: "מנויים", amount: "", details: [] },
     { id: uid(), label: "מעשרות", amount: "", details: [] },
@@ -336,48 +313,6 @@ export default function App() {
   const totalExpense = useMemo(() => calcSum(expenses), [expenses]);
   const remaining = useMemo(() => totalIncome - totalExpense, [totalIncome, totalExpense]);
 
-  const expenseSegments = useMemo(() => {
-    const total = calcSum(expenses);
-    if (!total) return [];
-
-    const palette = ["#6c5ce7", "#ff8b5f", "#20bfa9", "#ffa940", "#4e54c8", "#8e44ad"];
-    let startAt = 0;
-
-    return expenses
-      .map((item, idx) => ({
-        id: item.id,
-        label: item.label || `הוצאה ${idx + 1}`,
-        value: calcItemAmount(item),
-      }))
-      .filter((seg) => seg.value > 0)
-      .map((seg, idx) => {
-        const share = seg.value / total;
-        const start = startAt;
-        const end = startAt + share * 360;
-        startAt = end;
-
-        return {
-          ...seg,
-          color: palette[idx % palette.length],
-          start,
-          end,
-          percent: Math.round(share * 100),
-        };
-      });
-  }, [expenses]);
-
-  const pieGradient = useMemo(() => {
-    if (!expenseSegments.length) {
-      return "radial-gradient(circle at 30% 30%, #eef0ff, #dfe4ff)";
-    }
-
-    const segments = expenseSegments
-      .map((seg) => `${seg.color} ${seg.start}deg ${seg.end}deg`)
-      .join(", ");
-
-    return `conic-gradient(${segments})`;
-  }, [expenseSegments]);
-
   function handleCalculate() {
     setDidCalculate(true);
   }
@@ -393,7 +328,7 @@ export default function App() {
       { id: uid(), label: "משכורת 2", amount: "", details: [] },
     ]);
     setExpenses([
-      { id: uid(), label: "שכירות", amount: "", details: [], lockDetails: true },
+      { id: uid(), label: "שכירות", amount: "", details: [] },
       { id: uid(), label: "מנויים", amount: "", details: [] },
       { id: uid(), label: "חשמל / מים", amount: "", details: [] },
     ]);
@@ -430,10 +365,9 @@ export default function App() {
             />
           </label>
 
-          <div className="heroMeter">
-            <div className="pill soft">{monthLabel}</div>
-            <p className="heroSmall">מלא את הנתונים וגלול לסיכום כדי להריץ בדיקת תקציב.</p>
-          </div>
+          <button className="btn btnPrimary" type="button" onClick={handleCalculate}>
+            חשב תקציב
+          </button>
         </div>
       </header>
 
@@ -454,14 +388,8 @@ export default function App() {
           kind="expense"
         />
 
-        <section className="card summaryCard">
-          <div className="cardHeader">
-            <div>
-              <h2 className="cardTitle">סיכום</h2>
-              <p className="cardSub">תמונה צבעונית ומהירה של הכנסות מול הוצאות.</p>
-            </div>
-            <div className="pill glass">{monthLabel}</div>
-          </div>
+        <section className="card">
+          <h2 className="cardTitle">סיכום</h2>
 
           <div className="summary">
             <div className="summaryItem">
@@ -482,22 +410,9 @@ export default function App() {
             </div>
           </div>
 
-          <div className="summaryActions">
-            <div className="actionCopy">
-              <div className="actionTitle">בדוק את מצב התקציב</div>
-              <p className="actionText">
-                אחרי שהמספרים מוכנים, לחץ על הכפתור כדי לקבל חיווי ברור אם אתה בעודף או במינוס.
-              </p>
-            </div>
-
-            <button className="btn btnPrimary" type="button" onClick={handleCalculate}>
-              חשב תקציב
-            </button>
-          </div>
-
           {!didCalculate && (
             <div className="hint">
-              טיפ: הסכומים מתעדכנים בזמן אמת, אבל החיווי הבהיר מופעל אחרי שתלחץ על "חשב תקציב" כאן למטה.
+              טיפ: לחץ “חשב תקציב” למעלה — זה רק מפעיל מצב “בדיקה”, אבל הסכומים מתעדכנים גם בזמן אמת.
             </div>
           )}
 
@@ -514,43 +429,6 @@ export default function App() {
               )}
             </div>
           )}
-        </section>
-
-        <section className="card visualCard">
-          <div className="cardHeader">
-            <div>
-              <h2 className="cardTitle">סטטיסטיקה חזותית</h2>
-              <p className="cardSub">חלוקה צבעונית של ההוצאות כדי להבין במה הכסף שלך מושקע.</p>
-            </div>
-          </div>
-
-          <div className="visualGrid">
-            <div className="pieShell">
-              <div className="pieChart" style={{ background: pieGradient }}>
-                {!expenseSegments.length && (
-                  <div className="emptyChart">הזן נתונים כדי לראות גרף חי.</div>
-                )}
-              </div>
-            </div>
-
-            <div className="legendList">
-              {expenseSegments.length > 0 ? (
-                expenseSegments.map((seg) => (
-                  <div key={seg.id} className="legendItem">
-                    <span className="legendDot" style={{ backgroundColor: seg.color }} />
-                    <div className="legendTexts">
-                      <div className="legendLabel">{seg.label}</div>
-                      <div className="legendSub">
-                        {formatILS(seg.value)} · {seg.percent}% מסך ההוצאות
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="empty soft">לא נוספו עדיין הוצאות להצגה.</div>
-              )}
-            </div>
-          </div>
         </section>
 
         <footer className="footer">
