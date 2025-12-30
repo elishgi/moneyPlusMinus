@@ -583,14 +583,7 @@ export default function App() {
     remaining > 0 ? "pill pillGood" : remaining < 0 ? "pill pillBad" : "pill";
 
   if (!showBudget) {
-    return (
-      <AwarenessFlow
-        data={awarenessData}
-        onComplete={handleAwarenessComplete}
-        locked={awarenessData?.completed}
-        onBackToBudget={() => setShowBudget(true)}
-      />
-    );
+    return <AwarenessFlow data={awarenessData} onComplete={handleAwarenessComplete} />;
   }
 
   return (
