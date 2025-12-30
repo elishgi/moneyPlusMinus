@@ -31,8 +31,14 @@ function calcSum(items) {
   return items.reduce((sum, item) => sum + calcItemAmount(item), 0);
 }
 
-function Section({ title, subtitle, items, setItems, kind }) {
+function Section({ title, subtitle, items, setItems, kind, createItem }) {
   const isIncome = kind === "income";
+
+  const defaultLabel = isIncome ? "משכורת" : "הוצאה חדשה";
+  const buildItem =
+    typeof createItem === "function"
+      ? createItem
+      : () => ({ id: uid(), label: defaultLabel, amount: "", details: [] });
 
   function toggleDetails(id) {
     setItems((prev) =>
@@ -43,11 +49,7 @@ function Section({ title, subtitle, items, setItems, kind }) {
   }
 
   function addRow() {
-    const defaultLabel = isIncome ? "משכורת" : "הוצאה חדשה";
-    setItems((prev) => [
-      ...prev,
-      { id: uid(), label: defaultLabel, amount: "", details: [] },
-    ]);
+    setItems((prev) => [...prev, buildItem()]);
   }
 
   function removeRow(id) {
@@ -309,6 +311,10 @@ export default function App() {
     { id: uid(), label: "מעשרות", amount: "", details: [] },
   ]);
 
+  const [previousCredit, setPreviousCredit] = useState(() => [
+    { id: uid(), label: "כרטיס אשראי 1", amount: "", details: [], lockDetails: true },
+  ]);
+
   const [didCalculate, setDidCalculate] = useState(false);
 
   // טעינה מ-LocalStorage
@@ -321,6 +327,7 @@ export default function App() {
       if (parsed?.monthLabel) setMonthLabel(parsed.monthLabel);
       if (Array.isArray(parsed?.incomes)) setIncomes(parsed.incomes);
       if (Array.isArray(parsed?.expenses)) setExpenses(parsed.expenses);
+      if (Array.isArray(parsed?.previousCredit)) setPreviousCredit(parsed.previousCredit);
     } catch {
       // מתעלמים — אם יש JSON לא תקין
     }
@@ -328,22 +335,31 @@ export default function App() {
 
   // שמירה אוטומטית
   useEffect(() => {
-    const payload = { monthLabel, incomes, expenses };
+    const payload = { monthLabel, incomes, expenses, previousCredit };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  }, [monthLabel, incomes, expenses]);
+  }, [monthLabel, incomes, expenses, previousCredit]);
 
   const totalIncome = useMemo(() => calcSum(incomes), [incomes]);
-  const totalExpense = useMemo(() => calcSum(expenses), [expenses]);
+  const totalPreviousCredit = useMemo(() => calcSum(previousCredit), [previousCredit]);
+  const totalExpense = useMemo(
+    () => calcSum(expenses) + totalPreviousCredit,
+    [expenses, totalPreviousCredit]
+  );
   const remaining = useMemo(() => totalIncome - totalExpense, [totalIncome, totalExpense]);
 
+  const combinedExpenses = useMemo(
+    () => [...expenses, ...previousCredit],
+    [expenses, previousCredit]
+  );
+
   const expenseSegments = useMemo(() => {
-    const total = calcSum(expenses);
+    const total = calcSum(combinedExpenses);
     if (!total) return [];
 
     const palette = ["#6c5ce7", "#ff8b5f", "#20bfa9", "#ffa940", "#4e54c8", "#8e44ad"];
     let startAt = 0;
 
-    return expenses
+    return combinedExpenses
       .map((item, idx) => ({
         id: item.id,
         label: item.label || `הוצאה ${idx + 1}`,
@@ -364,7 +380,7 @@ export default function App() {
           percent: Math.round(share * 100),
         };
       });
-  }, [expenses]);
+  }, [combinedExpenses]);
 
   const pieGradient = useMemo(() => {
     if (!expenseSegments.length) {
@@ -396,6 +412,9 @@ export default function App() {
       { id: uid(), label: "שכירות", amount: "", details: [], lockDetails: true },
       { id: uid(), label: "מנויים", amount: "", details: [] },
       { id: uid(), label: "חשמל / מים", amount: "", details: [] },
+    ]);
+    setPreviousCredit([
+      { id: uid(), label: "כרטיס אשראי 1", amount: "", details: [], lockDetails: true },
     ]);
     localStorage.removeItem(STORAGE_KEY);
   }
@@ -452,6 +471,21 @@ export default function App() {
           items={expenses}
           setItems={setExpenses}
           kind="expense"
+        />
+
+        <Section
+          title="אשראי חודש קודם"
+          subtitle="הוצאות שכבר חויבו ויירדו בתחילת החודש הנוכחי. ניתן להוסיף כמה כרטיסים."
+          items={previousCredit}
+          setItems={setPreviousCredit}
+          kind="expense"
+          createItem={() => ({
+            id: uid(),
+            label: `כרטיס אשראי ${previousCredit.length + 1}`,
+            amount: "",
+            details: [],
+            lockDetails: true,
+          })}
         />
 
         <section className="card summaryCard">
