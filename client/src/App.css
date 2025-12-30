@@ -157,34 +157,61 @@
 }
 
 .highlightBox {
-  padding: 16px;
-  border-radius: 14px;
-  border: 1px solid rgba(32, 191, 169, 0.2);
-  background: linear-gradient(135deg, rgba(32, 191, 169, 0.08), rgba(255, 255, 255, 0.9));
-  box-shadow: 0 12px 30px rgba(32, 191, 169, 0.15);
+  padding: 20px;
+  border-radius: 18px;
+  border: 2px solid rgba(32, 191, 169, 0.3);
+  background: linear-gradient(135deg, rgba(32, 191, 169, 0.12), rgba(255, 255, 255, 0.96));
+  box-shadow: 0 18px 45px rgba(32, 191, 169, 0.25);
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
 .highlightPrimary {
-  background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.9), rgba(108, 92, 231, 0.12)),
-    linear-gradient(145deg, rgba(32, 191, 169, 0.16), rgba(108, 92, 231, 0.12));
-  border: 1px solid rgba(32, 191, 169, 0.28);
-  box-shadow: 0 18px 40px rgba(108, 92, 231, 0.18);
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.95), rgba(108, 92, 231, 0.18)),
+    linear-gradient(145deg, rgba(32, 191, 169, 0.24), rgba(108, 92, 231, 0.16));
+  border: 2px solid rgba(32, 191, 169, 0.35);
+  box-shadow: 0 24px 55px rgba(108, 92, 231, 0.24);
+}
+
+.highlightPrimary::after {
+  content: "";
+  position: absolute;
+  inset: -30% -10% auto;
+  height: 120px;
+  background: radial-gradient(circle at 30% 50%, rgba(255, 255, 255, 0.42), transparent 45%);
+  pointer-events: none;
 }
 
 .highlightLabel {
-  font-weight: 800;
+  font-weight: 900;
+  font-size: 15px;
+  letter-spacing: 0.2px;
 }
 
 .highlightValue {
-  font-size: 26px;
+  font-size: 32px;
+}
+
+.highlightValue .pill {
+  font-size: 24px;
+  padding: 12px 20px;
+  box-shadow: 0 10px 24px rgba(108, 92, 231, 0.28);
+  border: 2px solid rgba(108, 92, 231, 0.35);
 }
 
 .highlightText {
   margin: 0;
-  color: var(--muted);
+  color: #0b3b32;
+  font-weight: 700;
+}
+
+@media (min-width: 900px) {
+  .highlightPrimary {
+    grid-column: span 2;
+  }
 }
 
 .nextStepWrapper {

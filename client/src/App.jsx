@@ -556,41 +556,15 @@ export default function App() {
 
   function handleCalculate() {
     setDidCalculate(true);
-    setCollapsedSections({ income: true, expenses: true, credit: true });
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  async function handleSaveBudget() {
-    setSaveState({ status: "saving", message: "" });
-
-    try {
-      const response = await fetch("/api/budgets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          monthLabel,
-          totalIncome,
-          totalExpenses: totalExpense,
-          remaining,
-        }),
-      });
-
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        const message = payload?.message || "שמירת הנתונים נכשלה";
-        throw new Error(message);
-      }
-
-      setSaveState({
-        status: "success",
-        message: "הנתונים נשמרו בהצלחה בבסיס הנתונים.",
-      });
-    } catch (error) {
-      setSaveState({
-        status: "error",
-        message: error.message || "שמירת הנתונים נכשלה.",
-      });
-    }
+  function handleSaveBudget() {
+    setSaveState({
+      status: "success",
+      message: "קיפלנו את הקופסאות והעברנו אותך לראש הדף כדי להתרכז בסיכום.",
+    });
+    setCollapsedSections({ income: true, expenses: true, credit: true });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function resetAll() {
