@@ -1,16 +1,51 @@
-# React + Vite
+# moneyPlusMinus
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Overview
+This repository now includes a minimal Express server that connects to MongoDB and stores keystroke logs from the client. Use the endpoints to capture typing activity (session, page, user, and individual key events) and to review the most recent logs for a given session.
 
-Currently, two official plugins are available:
+## Getting started
+1. Copy `.env.example` to `.env` and set `MONGODB_URI` to your database connection string.
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Run the backend:
+   ```bash
+   npm run server
+   ```
+4. The API will be available at `http://localhost:4000` by default.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## API
+### Health check
+`GET /api/health` → `{ status: "ok" }`
 
-## React Compiler
+### Save keystrokes
+`POST /api/keystrokes`
+```json
+{
+  "sessionId": "session-123",
+  "userId": "optional-user-id",
+  "page": "/example",
+  "metadata": { "locale": "he-IL" },
+  "events": [
+    {
+      "key": "a",
+      "inputValue": "a",
+      "fieldName": "email",
+      "eventType": "keydown",
+      "typedAt": "2024-01-01T12:00:00.000Z"
+    }
+  ]
+}
+```
+- Returns `201` with the new log id when saved.
+- Validation errors return `400`.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Get latest keystrokes for a session
+`GET /api/keystrokes/:sessionId`
+- Returns the 20 most recent logs for the session, sorted by creation date.
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Development scripts
+- `npm run dev` – start the Vite dev server for the React front end.
+- `npm run server` – start the Express API after connecting to MongoDB.
+- `npm run dev:server` – start the Express API with nodemon for live reloads.
