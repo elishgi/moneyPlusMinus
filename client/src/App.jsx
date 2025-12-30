@@ -670,11 +670,6 @@ export default function App() {
           </div>
         </div>
 
-        <div className="heroMeter">
-          <div className="pill soft">{monthLabel}</div>
-          <p className="heroSmall">מלא את ההכנסות וההוצאות הקבועות, גלול לסיכום וקבל את המסגרת הפנויה להמשך החודש.</p>
-        </div>
-
         {didCalculate && (
           <div className="heroHighlights">
             <div className="highlightBox highlightPrimary">
