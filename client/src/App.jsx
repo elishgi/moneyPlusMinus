@@ -497,6 +497,7 @@ export default function App() {
 
   function handleCalculate() {
     setDidCalculate(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function handleSaveBudget() {
@@ -592,6 +593,22 @@ export default function App() {
             <p className="heroSmall">מלא את הנתונים וגלול לסיכום כדי להריץ בדיקת תקציב.</p>
           </div>
         </div>
+
+        {didCalculate && (
+          <a className="nextStepBox" href="/tracking" target="_blank" rel="noreferrer">
+            <div>
+              <div className="nextStepLabel">יומן הכנסות והוצאות שוטפות</div>
+              <p className="nextStepText">
+                הדף הזה אמור לשמש לתיעוד ההוצאות וההכנסות השוטפות מהחודש בצורה שמתעדכנת עם הכסף הנותר.
+              </p>
+            </div>
+
+            <div className="nextStepRemaining">
+              <span className="nextStepCaption">כסף נותר אחרי החישוב</span>
+              <span className={remainingClass}>{formatILS(remaining)}</span>
+            </div>
+          </a>
+        )}
       </header>
 
       <main className="content">
