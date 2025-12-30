@@ -1,9 +1,15 @@
 # moneyPlusMinus
 
 ## Overview
-This repository now includes a minimal Express server that connects to MongoDB and stores keystroke logs from the client. Use the endpoints to capture typing activity (session, page, user, and individual key events) and to review the most recent logs for a given session.
+This repository contains a MongoDB-backed Express API and a separate React client. Use the API to store keystroke logs from the client (session, page, user, and individual key events) and to review the most recent logs for a given session.
+
+## Project structure
+- `server/` – Express API (MongoDB connection, routes, controllers, and models).
+- `client/` – React front end built with Vite.
+- `.env.example` – Sample environment variables for the backend.
 
 ## Getting started
+### Backend
 1. Copy `.env.example` to `.env` and set `MONGODB_URI` to your database connection string.
 2. Install dependencies:
    ```bash
@@ -11,9 +17,21 @@ This repository now includes a minimal Express server that connects to MongoDB a
    ```
 3. Run the backend:
    ```bash
-   npm run server
+   npm run dev
    ```
 4. The API will be available at `http://localhost:4000` by default.
+
+### Frontend
+1. Install dependencies:
+   ```bash
+   cd client
+   npm install
+   ```
+2. Start the Vite dev server:
+   ```bash
+   npm run dev
+   ```
+3. The React app will be available at `http://localhost:5173` by default.
 
 ## API
 ### Health check
@@ -46,6 +64,7 @@ This repository now includes a minimal Express server that connects to MongoDB a
 - Returns the 20 most recent logs for the session, sorted by creation date.
 
 ## Development scripts
-- `npm run dev` – start the Vite dev server for the React front end.
-- `npm run server` – start the Express API after connecting to MongoDB.
-- `npm run dev:server` – start the Express API with nodemon for live reloads.
+- `npm run dev` (root) – start the Express API with nodemon for live reloads.
+- `npm run start` (root) – start the Express API after connecting to MongoDB.
+- `npm run dev` (inside `client/`) – start the Vite dev server for the React front end.
+- `npm run build` (inside `client/`) – build the production bundle for the React front end.
