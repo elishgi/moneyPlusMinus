@@ -1,23 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import AwarenessFlow, { defaultAwarenessData } from "./AwarenessFlow";
 
 const STORAGE_KEY = "budget-landing-v1";
-const AWARENESS_STORAGE_KEY = "budget-awareness-v1";
-
-function loadAwarenessFromStorage() {
-  try {
-    const raw = localStorage.getItem(AWARENESS_STORAGE_KEY);
-    if (!raw) return { data: defaultAwarenessData, completed: false };
-
-    const parsed = JSON.parse(raw);
-    return {
-      data: { ...defaultAwarenessData, ...parsed },
-      completed: Boolean(parsed?.completed),
-    };
-  } catch {
-    return { data: defaultAwarenessData, completed: false };
-  }
-}
 
 const defaultIncomeTemplates = [
   { label: "משכורת 1" },
@@ -375,10 +358,6 @@ function Section({ title, subtitle, items, setItems, kind, createItem }) {
 }
 
 export default function App() {
-  const awarenessFromStorage = useMemo(() => loadAwarenessFromStorage(), []);
-  const [awarenessData, setAwarenessData] = useState(awarenessFromStorage.data);
-  const [showBudget, setShowBudget] = useState(awarenessFromStorage.completed);
-
   const [monthLabel, setMonthLabel] = useState(() => {
     const d = new Date();
     return `${d.toLocaleString("he-IL", { month: "long" })} ${d.getFullYear()}`;
@@ -398,20 +377,6 @@ export default function App() {
 
   const [didCalculate, setDidCalculate] = useState(false);
   const [saveState, setSaveState] = useState({ status: "idle", message: "" });
-
-  useEffect(() => {
-    const payload = { ...awarenessData, completed: showBudget };
-    localStorage.setItem(AWARENESS_STORAGE_KEY, JSON.stringify(payload));
-  }, [awarenessData, showBudget]);
-
-  function handleAwarenessComplete(payload) {
-    setAwarenessData(payload);
-    setShowBudget(true);
-  }
-
-  if (!showBudget) {
-    return <AwarenessFlow data={awarenessData} onComplete={handleAwarenessComplete} />;
-  }
 
   // טעינה מ-LocalStorage
   useEffect(() => {
@@ -556,18 +521,9 @@ export default function App() {
       <header className="hero">
         <div className="heroTop">
           <div className="badge">מחשבון תקציב ביתי</div>
-          <div className="heroActionsInline">
-            <button
-              className="btn btnGhost"
-              type="button"
-              onClick={() => setShowBudget(false)}
-            >
-              חזרה לשאלון מודעות
-            </button>
-            <button className="btn btnGhost" type="button" onClick={resetAll}>
-              איפוס
-            </button>
-          </div>
+          <button className="btn btnGhost" type="button" onClick={resetAll}>
+            איפוס
+          </button>
         </div>
 
         <h1 className="heroTitle">תמונה מהירה של הכסף שלך לחודש</h1>
