@@ -281,8 +281,9 @@ export default function App() {
 
   const [expenses, setExpenses] = useState(() => [
     { id: uid(), label: "שכירות", amount: "", details: [] },
+    { id: uid(), label: "חשבונות (מים, חשמל וכו)", amount: "", details: [] },
     { id: uid(), label: "מנויים", amount: "", details: [] },
-    { id: uid(), label: "חשמל / מים", amount: "", details: [] },
+    { id: uid(), label: "מעשרות", amount: "", details: [] },
   ]);
 
   const [didCalculate, setDidCalculate] = useState(false);
