@@ -112,8 +112,18 @@ function buildDefaultItems(templates) {
   }));
 }
 
-function Section({ title, subtitle, items, setItems, kind, createItem }) {
+function Section({
+  title,
+  subtitle,
+  items,
+  setItems,
+  kind,
+  createItem,
+  collapsed = false,
+  onToggleCollapse = () => {},
+}) {
   const isIncome = kind === "income";
+  const total = useMemo(() => calcSum(items), [items]);
 
   const defaultLabel = isIncome ? "משכורת" : "הוצאה חדשה";
   const buildItem =
@@ -216,20 +226,36 @@ function Section({ title, subtitle, items, setItems, kind, createItem }) {
   }
 
   return (
-    <section className="card">
+    <section className={`card collapsible ${collapsed ? "collapsed" : ""}`}>
       <div className="cardHeader">
         <div>
           <h2 className="cardTitle">{title}</h2>
           <p className="cardSub">{subtitle}</p>
         </div>
 
-        <button className="btn btnGhost" type="button" onClick={addRow}>
-          + הוסף {isIncome ? "הכנסה" : "הוצאה"}
-        </button>
+        <div className="cardHeaderActions">
+          <div className="pill glass">סה״כ: {formatILS(total)}</div>
+          <button className="btn btnGhost btnSmall" type="button" onClick={addRow}>
+            + הוסף {isIncome ? "הכנסה" : "הוצאה"}
+          </button>
+          <button
+            className="btn btnGhost btnSmall"
+            type="button"
+            onClick={onToggleCollapse}
+            aria-expanded={!collapsed}
+          >
+            {collapsed ? "פתח" : "סגור"} קופסה
+          </button>
+        </div>
       </div>
 
-      <div className="list">
-        {items.map((row, idx) => (
+      {collapsed ? (
+        <button className="collapsedBar" type="button" onClick={onToggleCollapse}>
+          לחץ כדי לפתוח ולערוך את הנתונים
+        </button>
+      ) : (
+        <div className="list">
+          {items.map((row, idx) => (
           <div className="row" key={row.id}>
             <div className="rowIndex">{idx + 1}</div>
 
@@ -364,12 +390,13 @@ function Section({ title, subtitle, items, setItems, kind, createItem }) {
           </div>
         ))}
 
-        {items.length === 0 && (
-          <div className="empty">
-            אין עדיין שורות. לחץ על “הוסף” כדי להתחיל.
-          </div>
-        )}
-      </div>
+          {items.length === 0 && (
+            <div className="empty">
+              אין עדיין שורות. לחץ על “הוסף” כדי להתחיל.
+            </div>
+          )}
+        </div>
+      )}
     </section>
   );
 }
@@ -397,6 +424,11 @@ export default function App() {
   );
 
   const [didCalculate, setDidCalculate] = useState(false);
+  const [collapsedSections, setCollapsedSections] = useState({
+    income: false,
+    expenses: false,
+    credit: false,
+  });
   const [saveState, setSaveState] = useState({ status: "idle", message: "" });
 
   useEffect(() => {
@@ -497,6 +529,8 @@ export default function App() {
 
   function handleCalculate() {
     setDidCalculate(true);
+    setCollapsedSections({ income: true, expenses: true, credit: true });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function handleSaveBudget() {
@@ -541,6 +575,7 @@ export default function App() {
     setIncomes(buildDefaultItems(defaultIncomeTemplates));
     setExpenses(buildDefaultItems(defaultExpenseTemplates));
     setPreviousCredit(buildDefaultItems(defaultCreditTemplates));
+    setCollapsedSections({ income: false, expenses: false, credit: false });
     localStorage.removeItem(STORAGE_KEY);
   }
 
@@ -592,6 +627,38 @@ export default function App() {
             <p className="heroSmall">מלא את הנתונים וגלול לסיכום כדי להריץ בדיקת תקציב.</p>
           </div>
         </div>
+
+        {didCalculate && (
+          <div className="heroHighlights">
+            <div className="highlightBox">
+              <div className="highlightLabel">כמה נשאר לחודש אחרי הקיצוצים</div>
+              <div className="highlightValue">
+                <span className={remainingClass}>{formatILS(remaining)}</span>
+              </div>
+              <p className="highlightText">הסכום המעודכן לאחר חישוב ההכנסות מול ההוצאות.</p>
+            </div>
+
+            <a
+              className="nextStepBox"
+              href="/tracking"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <div>
+                <div className="nextStepLabel">יומן הכנסות והוצאות שוטפות</div>
+                <p className="nextStepText">
+                  הדף הזה אמור לשמש לתיעוד ההוצאות וההכנסות השוטפות מהחודש בצורה שמתעדכנת עם הכסף הנותר.
+                </p>
+              </div>
+
+              <div className="nextStepAction">
+                <span className="btn btnPrimary btnSmall" type="button">
+                  המשך ליומן
+                </span>
+              </div>
+            </a>
+          </div>
+        )}
       </header>
 
       <main className="content">
@@ -601,6 +668,13 @@ export default function App() {
           items={incomes}
           setItems={setIncomes}
           kind="income"
+          collapsed={collapsedSections.income}
+          onToggleCollapse={() =>
+            setCollapsedSections((prev) => ({
+              ...prev,
+              income: !prev.income,
+            }))
+          }
         />
 
         <Section
@@ -609,6 +683,13 @@ export default function App() {
           items={expenses}
           setItems={setExpenses}
           kind="expense"
+          collapsed={collapsedSections.expenses}
+          onToggleCollapse={() =>
+            setCollapsedSections((prev) => ({
+              ...prev,
+              expenses: !prev.expenses,
+            }))
+          }
         />
 
         <Section
@@ -624,6 +705,13 @@ export default function App() {
             details: [],
             lockDetails: true,
           })}
+          collapsed={collapsedSections.credit}
+          onToggleCollapse={() =>
+            setCollapsedSections((prev) => ({
+              ...prev,
+              credit: !prev.credit,
+            }))
+          }
         />
 
         <section className="card summaryCard">
