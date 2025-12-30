@@ -605,9 +605,10 @@ export default function App() {
           </div>
         </div>
 
-        <h1 className="heroTitle">תמונה מהירה של הכסף שלך לחודש</h1>
+        <h1 className="heroTitle">כמה נשאר לך להמשך החודש אחרי ההוצאות הקבועות</h1>
         <p className="heroText">
-          הזן הכנסות והוצאות קבועות — וקבל מיד כמה נשאר לך לשימוש.
+          מטרת הדף היא לחשב עבורך את המסגרת הפנויה אחרי שהורדת את כל ההוצאות הקבועות,
+          כדי שתיגש להוצאות המשתנות כשברור לך כמה נשאר.
         </p>
 
         <div className="monthBox">
@@ -624,18 +625,18 @@ export default function App() {
 
           <div className="heroMeter">
             <div className="pill soft">{monthLabel}</div>
-            <p className="heroSmall">מלא את הנתונים וגלול לסיכום כדי להריץ בדיקת תקציב.</p>
+            <p className="heroSmall">מלא את ההכנסות וההוצאות הקבועות, גלול לסיכום וקבל את המסגרת הפנויה להמשך החודש.</p>
           </div>
         </div>
 
         {didCalculate && (
           <div className="heroHighlights">
             <div className="highlightBox">
-              <div className="highlightLabel">כמה נשאר לחודש אחרי הקיצוצים</div>
+              <div className="highlightLabel">כמה נשאר לחודש אחרי ההוצאות הקבועות</div>
               <div className="highlightValue">
                 <span className={remainingClass}>{formatILS(remaining)}</span>
               </div>
-              <p className="highlightText">הסכום המעודכן לאחר חישוב ההכנסות מול ההוצאות.</p>
+              <p className="highlightText">המסגרת המעודכנת שמראה כמה כסף נשאר לך להוצאות המשתנות אחרי שחישבת את כל הקבועות.</p>
             </div>
 
             <a
@@ -647,7 +648,7 @@ export default function App() {
               <div>
                 <div className="nextStepLabel">יומן הכנסות והוצאות שוטפות</div>
                 <p className="nextStepText">
-                  הדף הזה אמור לשמש לתיעוד ההוצאות וההכנסות השוטפות מהחודש בצורה שמתעדכנת עם הכסף הנותר.
+                  ממשיכים מכאן לתעד הוצאות והכנסות שוטפות, כשבראש ברור שהמסגרת היא מה שנשאר אחרי ההוצאות הקבועות שחישבת.
                 </p>
               </div>
 
