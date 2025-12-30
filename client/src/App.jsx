@@ -433,6 +433,23 @@ export default function App() {
   });
   const [saveState, setSaveState] = useState({ status: "idle", message: "" });
 
+  const userDisplayName = useMemo(() => {
+    const parts = [awarenessData?.userName, awarenessData?.userLastName].filter(Boolean);
+    return parts.length ? parts.join(" ") : "משתמש";
+  }, [awarenessData]);
+
+  const todayLabel = useMemo(() => {
+    const now = new Date();
+    return now.toLocaleDateString("he-IL", {
+      weekday: "long",
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+  }, []);
+
+  const isMonthLocked = Boolean(awarenessData?.targetMonth);
+
   useEffect(() => {
     const payload = { ...awarenessData, completed: showBudget };
     localStorage.setItem(AWARENESS_STORAGE_KEY, JSON.stringify(payload));
@@ -606,50 +623,61 @@ export default function App() {
 
   return (
     <div className="app">
-      <header className="hero">
-        <div className="heroTop">
-          <div className="badge">מחשבון תקציב ביתי</div>
-          <div className="heroActionsInline">
-            <button
-              className="btn btnGhost"
-              type="button"
-              onClick={() => setShowBudget(false)}
-            >
-              חזרה לשאלון מודעות
-            </button>
-            <button className="btn btnGhost" type="button" onClick={resetAll}>
-              איפוס
-            </button>
-          </div>
+      <div className="pageHeading">
+        <div>
+          <p className="pageKicker">מחשבון תקציב ביתי</p>
+          <h1 className="pageTitle">
+            {userDisplayName} · {todayLabel}
+          </h1>
         </div>
 
-        <h1 className="heroTitle">כמה נשאר לך להמשך החודש אחרי ההוצאות הקבועות</h1>
-        <p className="heroText">
-          מטרת הדף היא לחשב עבורך את המסגרת הפנויה אחרי שהורדת את כל ההוצאות הקבועות,
-          כדי שתיגש להוצאות המשתנות כשברור לך כמה נשאר.
-        </p>
+        <div className="pageActions">
+          <button className="btn btnGhost" type="button" onClick={() => setShowBudget(false)}>
+            חזרה לשאלון מודעות
+          </button>
+          <button className="btn btnGhost" type="button" onClick={resetAll}>
+            איפוס
+          </button>
+        </div>
+      </div>
 
-        <div className="monthBox">
-          <label className="field">
-            <span className="label">חודש</span>
+      <header className="hero">
+        <div className="heroTop">
+          <div className="heroIntro">
+            <h2 className="heroTitle">כמה נשאר לך להמשך החודש אחרי ההוצאות הקבועות</h2>
+            <p className="heroText">
+              מטרת הדף היא לחשב עבורך את המסגרת הפנויה אחרי שהורדת את כל ההוצאות הקבועות,
+              כדי שתיגש להוצאות המשתנות כשברור לך כמה נשאר.
+            </p>
+          </div>
+
+          <div className="heroMonth">
+            <div className="monthLabel">חודש</div>
             <input
-              className="input"
+              className="input monthInput"
               type="text"
               value={monthLabel}
               onChange={(e) => setMonthLabel(e.target.value)}
               placeholder="למשל: דצמבר 2025"
+              readOnly={isMonthLocked}
+              disabled={isMonthLocked}
             />
-          </label>
-
-          <div className="heroMeter">
-            <div className="pill soft">{monthLabel}</div>
-            <p className="heroSmall">מלא את ההכנסות וההוצאות הקבועות, גלול לסיכום וקבל את המסגרת הפנויה להמשך החודש.</p>
+            <div className="monthHelper">
+              {!isMonthLocked
+                ? "אם תרצה לעדכן חודש, עשה זאת כאן."
+                : "החודש נקבע מתוך שאלון המודעות ולכן אינו ניתן לעריכה כאן."}
+            </div>
           </div>
+        </div>
+
+        <div className="heroMeter">
+          <div className="pill soft">{monthLabel}</div>
+          <p className="heroSmall">מלא את ההכנסות וההוצאות הקבועות, גלול לסיכום וקבל את המסגרת הפנויה להמשך החודש.</p>
         </div>
 
         {didCalculate && (
           <div className="heroHighlights">
-            <div className="highlightBox">
+            <div className="highlightBox highlightPrimary">
               <div className="highlightLabel">כמה נשאר לחודש אחרי ההוצאות הקבועות</div>
               <div className="highlightValue">
                 <span className={remainingClass}>{formatILS(remaining)}</span>
@@ -657,25 +685,27 @@ export default function App() {
               <p className="highlightText">המסגרת המעודכנת שמראה כמה כסף נשאר לך להוצאות המשתנות אחרי שחישבת את כל הקבועות.</p>
             </div>
 
-            <a
-              className="nextStepBox"
-              href="/tracking"
-              target="_blank"
-              rel="noreferrer"
-            >
-              <div>
-                <div className="nextStepLabel">יומן הכנסות והוצאות שוטפות</div>
-                <p className="nextStepText">
-                  ממשיכים מכאן לתעד הוצאות והכנסות שוטפות, כשבראש ברור שהמסגרת היא מה שנשאר אחרי ההוצאות הקבועות שחישבת.
-                </p>
-              </div>
+            <div className="nextStepWrapper">
+              <a
+                className="nextStepBox"
+                href="/tracking"
+                target="_blank"
+                rel="noreferrer"
+              >
+                <div>
+                  <div className="nextStepLabel">יומן הכנסות והוצאות שוטפות</div>
+                  <p className="nextStepText">
+                    ממשיכים מכאן לתעד הוצאות והכנסות שוטפות, כשבראש ברור שהמסגרת היא מה שנשאר אחרי ההוצאות הקבועות שחישבת.
+                  </p>
+                </div>
 
-              <div className="nextStepAction">
-                <span className="btn btnPrimary btnSmall" type="button">
-                  המשך ליומן
-                </span>
-              </div>
-            </a>
+                <div className="nextStepAction">
+                  <span className="btn btnPrimary btnSmall" type="button">
+                    המשך ליומן
+                  </span>
+                </div>
+              </a>
+            </div>
           </div>
         )}
       </header>
