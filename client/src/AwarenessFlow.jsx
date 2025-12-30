@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const primaryQuestions = [
   {
@@ -47,6 +47,8 @@ const detailedQuestions = [
 
 const defaultAwarenessData = {
   userName: "",
+  userLastName: "",
+  targetMonth: "",
   isAware: null,
   incomeEstimate: "",
   fixedExpensesEstimate: "",
@@ -58,6 +60,18 @@ const defaultAwarenessData = {
   treatsEstimate: "",
   completed: false,
 };
+
+function toNumber(value) {
+  if (value === null || value === undefined) return 0;
+  const cleaned = String(value).replace(/[,\s]/g, "");
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function formatILS(value) {
+  const n = Number(value) || 0;
+  return n.toLocaleString("he-IL", { style: "currency", currency: "ILS" });
+}
 
 function QuestionCard({
   title,
@@ -105,9 +119,17 @@ function QuestionCard({
   );
 }
 
-export default function AwarenessFlow({ data, onComplete }) {
+export default function AwarenessFlow({
+  data,
+  onComplete,
+  locked = false,
+  onBackToBudget,
+  onReset = () => {},
+}) {
   const [form, setForm] = useState({ ...defaultAwarenessData, ...data });
-  const [step, setStep] = useState("intro");
+  const [step, setStep] = useState(() =>
+    locked || data?.completed ? "insights" : "intro"
+  );
   const [primaryIndex, setPrimaryIndex] = useState(0);
   const [detailIndex, setDetailIndex] = useState(0);
   const [acknowledged, setAcknowledged] = useState(false);
@@ -124,9 +146,62 @@ export default function AwarenessFlow({ data, onComplete }) {
         (primaryQuestions.length + detailIndex + 1) /
         (primaryQuestions.length + detailedQuestions.length)
       );
-    if (step === "summary") return 1;
+    if (step === "summary" || step === "insights") return 1;
     return 0;
   }, [step, primaryIndex, detailIndex]);
+
+  const isReadOnly = locked || form.completed;
+
+  const insights = useMemo(() => {
+    const income = toNumber(form.incomeEstimate);
+    const fixed = toNumber(form.fixedExpensesEstimate);
+    const credit = toNumber(form.creditCardEstimate);
+    const debit = toNumber(form.debitCardEstimate);
+    const fuel = toNumber(form.fuelEstimate);
+    const groceries = toNumber(form.groceriesEstimate);
+    const treats = toNumber(form.treatsEstimate);
+
+    const estimatedExpenses = fixed + credit + debit + fuel + groceries + treats;
+    const estimatedBalance = income - estimatedExpenses;
+
+    const fullyAnswered =
+      form.isAware &&
+      form.deepAware &&
+      primaryQuestions.every((q) => toNumber(form[q.key]) > 0) &&
+      detailedQuestions.every((q) => toNumber(form[q.key]) > 0);
+
+    let tone = "בואו נצלול יחד";
+    if (form.isAware && form.deepAware) tone = "רמת מודעות גבוהה!";
+    else if (form.isAware) tone = "יש בסיס טוב";
+    else tone = "נעזור לך לעשות סדר";
+
+    let balanceMessage = "";
+    if (estimatedBalance < 0) {
+      balanceMessage =
+        "ההוצאות עולות על ההכנסות לפי הערכתך. אנחנו כאן כדי לגלות איפה הכסף בורח ולתקן.";
+    } else if (estimatedBalance >= 1000) {
+      balanceMessage =
+        "כל הכבוד! יש לך מרווח חיובי יפה. נמשיך לעזור לך לשמר ולהגדיל אותו.";
+    } else {
+      balanceMessage =
+        "המצב מאוזן יחסית, ועדיין כדאי לבדוק איפה ניתן ללטש או לחסוך עוד קצת.";
+    }
+
+    return {
+      income,
+      estimatedExpenses,
+      estimatedBalance,
+      fullyAnswered,
+      tone,
+      balanceMessage,
+    };
+  }, [form]);
+
+  useEffect(() => {
+    if (isReadOnly) {
+      setStep("insights");
+    }
+  }, [isReadOnly]);
 
   function updateField(key, value) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -169,12 +244,25 @@ export default function AwarenessFlow({ data, onComplete }) {
     if (detailIndex < detailedQuestions.length - 1) {
       setDetailIndex((idx) => idx + 1);
     } else {
-      setStep("summary");
+      setStep("insights");
     }
   }
 
+  function handleResetInsights() {
+    const resetPayload = { ...defaultAwarenessData };
+    setForm(resetPayload);
+    setPrimaryIndex(0);
+    setDetailIndex(0);
+    setAcknowledged(false);
+    setStep("intro");
+    onReset(resetPayload);
+  }
+
   function handleComplete() {
-    onComplete({ ...form, completed: true });
+    const payload = { ...form, completed: true };
+    setForm(payload);
+    setStep("insights");
+    onComplete(payload);
   }
 
   return (
@@ -200,16 +288,43 @@ export default function AwarenessFlow({ data, onComplete }) {
           בהמשך.
         </p>
 
-        <label className="field awarenessNameField">
-          <span className="label">שם המשתמש</span>
-          <input
-            className="input"
-            type="text"
-            placeholder="איך לפנות אליך?"
-            value={form.userName}
-            onChange={(e) => updateField("userName", e.target.value)}
-          />
-        </label>
+        <div className="awarenessInfoGrid">
+          <label className="field">
+            <span className="label">שם פרטי</span>
+            <input
+              className="input"
+              type="text"
+              placeholder="איך לפנות אליך?"
+              value={form.userName}
+              onChange={(e) => updateField("userName", e.target.value)}
+              disabled={isReadOnly}
+            />
+          </label>
+
+          <label className="field">
+            <span className="label">שם משפחה</span>
+            <input
+              className="input"
+              type="text"
+              placeholder="לדוגמה כהן או לוי"
+              value={form.userLastName}
+              onChange={(e) => updateField("userLastName", e.target.value)}
+              disabled={isReadOnly}
+            />
+          </label>
+
+          <label className="field">
+            <span className="label">חודש לבדיקה</span>
+            <input
+              className="input"
+              type="text"
+              placeholder="לדוגמה דצמבר 2025"
+              value={form.targetMonth}
+              onChange={(e) => updateField("targetMonth", e.target.value)}
+              disabled={isReadOnly}
+            />
+          </label>
+        </div>
       </header>
 
       <main className="content awarenessContent">
@@ -332,61 +447,131 @@ export default function AwarenessFlow({ data, onComplete }) {
           />
         )}
 
-        {step === "summary" && (
-          <section className="card awarenessCard summaryCard">
-            <div className="cardHeader">
-              <div>
-                <h2 className="cardTitle">תודה על השיתוף!</h2>
+        {step === "insights" && (
+          <section className="card awarenessCard insightCard">
+            <div className="insightHero">
+              <div className="insightHalo" aria-hidden />
+              <div className="insightTitleBlock">
+                <div className="insightBadges">
+                  <span className="pill glass">התובנות שלנו</span>
+                  {insights.fullyAnswered && <span className="pill pillGood">ענית על הכל</span>}
+                  {isReadOnly && <span className="pill pillInfo">הנתונים נעולים לעריכה</span>}
+                </div>
+                <h2 className="cardTitle">
+                  {`${[form.userName, form.userLastName].filter(Boolean).join(" ") || ""}${
+                    form.userName || form.userLastName ? ", " : ""
+                  }`}הנה מה שהבנו מהנתונים שלך
+                </h2>
                 <p className="cardSub">
-                  ריכזנו את המספרים שהזנת. נשמור אותם וכשתלחץ "שמור והמשך" נעביר אותך למחשבון
-                  התקציב הביתי.
+                  {insights.tone}. אספנו את המספרים ששיתפת כדי לתת לך תמונת מצב חזותית ומהירה.
+                </p>
+                <div className="insightChips">
+                  <span className="chip">מודעות כללית: {form.isAware ? "כן" : "לא"}</span>
+                  <span className="chip">מודעות לפרטים: {form.deepAware ? "כן" : "לא"}</span>
+                  {form.targetMonth && (
+                    <span className="chip">בדיקה לחודש: {form.targetMonth}</span>
+                  )}
+                  {(form.userName || form.userLastName) && (
+                    <span className="chip">
+                      מעולה, שמרנו תחת: {[form.userName, form.userLastName]
+                        .filter(Boolean)
+                        .join(" ")}
+                    </span>
+                  )}
+                  <span className="chip">סך מקורות הוצאה שסיפקת: {formatILS(insights.estimatedExpenses)}</span>
+                </div>
+              </div>
+
+              <div className="insightMeter">
+                <div className="meterLabel">איזון משוער לפי מה שסיפרת</div>
+                <div
+                  className={`meterValue ${
+                    insights.estimatedBalance > 0
+                      ? "meterGood"
+                      : insights.estimatedBalance < 0
+                        ? "meterBad"
+                        : ""
+                  }`}
+                >
+                  {formatILS(insights.estimatedBalance)}
+                </div>
+                <p className="meterText">{insights.balanceMessage}</p>
+              </div>
+            </div>
+
+            <div className="insightGrid">
+              <div className="insightBox highlight">
+                <div className="insightBoxLabel">הכנסות שהוזנו</div>
+                <div className="insightBoxValue">{formatILS(insights.income)}</div>
+                <p className="insightBoxText">
+                  שיתפת אותנו כמה כסף נכנס בכל חודש. נשתמש בזה כדי להשוות מול ההוצאות.
+                </p>
+              </div>
+
+              <div className="insightBox highlight soft">
+                <div className="insightBoxLabel">הוצאות שהוזנו</div>
+                <div className="insightBoxValue">{formatILS(insights.estimatedExpenses)}</div>
+                <p className="insightBoxText">
+                  שילבת הוצאות קבועות, אשראי, דלק, קניות ופינוקים כדי לקבל תמונה מלאה.
+                </p>
+              </div>
+
+              <div className="insightBox">
+                <div className="insightBoxLabel">מה הבנו ממך</div>
+                <ul className="insightList">
+                  <li>הכנסה חודשית משוערת: {form.incomeEstimate || "—"}</li>
+                  <li>הוצאה חודשית כוללת לפי ההערכות שלך: {formatILS(insights.estimatedExpenses)}</li>
+                  <li>החודש שבחרת לבדיקה: {form.targetMonth || "—"}</li>
+                  <li>
+                    פידבק מיידי: {insights.estimatedBalance < 0
+                      ? "אנחנו נלווה אותך במציאת הדליפות"
+                      : "נמשיך לחזק את מה שעובד"}
+                  </li>
+                </ul>
+              </div>
+
+              <div className="insightBox">
+                <div className="insightBoxLabel">הכוונה להמשך</div>
+                <p className="insightBoxText">{insights.balanceMessage}</p>
+                <p className="insightBoxText soft">
+                  הדף הבא של המחשבון ישווה בין ההערכות האלו לבין המספרים המדויקים שתקליד.
+                  זה יעזור לנו לתרגם מודעות לפעולה.
                 </p>
               </div>
             </div>
 
-            <div className="summaryGrid">
-              <div className="summaryItem">
-                <span className="label">מודעות כללית</span>
-                <strong>{form.isAware ? "מודע" : "לא מודע"}</strong>
-              </div>
-              <div className="summaryItem">
-                <span className="label">מודעות לפרטים הקטנים</span>
-                <strong>{form.deepAware ? "כן" : "לא"}</strong>
-              </div>
-              <div className="summaryItem">
-                <span className="label">כמה מרוויח?</span>
-                <strong>{form.incomeEstimate || "—"}</strong>
-              </div>
-              <div className="summaryItem">
-                <span className="label">הוצאות קבועות</span>
-                <strong>{form.fixedExpensesEstimate || "—"}</strong>
-              </div>
-              <div className="summaryItem">
-                <span className="label">אשראי כרדיט</span>
-                <strong>{form.creditCardEstimate || "—"}</strong>
-              </div>
-              <div className="summaryItem">
-                <span className="label">אשראי חיוב מיידי</span>
-                <strong>{form.debitCardEstimate || "—"}</strong>
-              </div>
-              <div className="summaryItem">
-                <span className="label">דלק</span>
-                <strong>{form.fuelEstimate || "—"}</strong>
-              </div>
-              <div className="summaryItem">
-                <span className="label">קניות</span>
-                <strong>{form.groceriesEstimate || "—"}</strong>
-              </div>
-              <div className="summaryItem">
-                <span className="label">פינוקים</span>
-                <strong>{form.treatsEstimate || "—"}</strong>
-              </div>
-            </div>
+            <div className="awarenessActions insightActions">
+              <div className="insightActionsGroup">
+                {!isReadOnly && (
+                  <button type="button" className="btn btnPrimary" onClick={handleComplete}>
+                    שמור והמשך למחשבון התקציב הביתי
+                  </button>
+                )}
 
-            <div className="awarenessActions">
-              <button type="button" className="btn btnPrimary" onClick={handleComplete}>
-                שמור והמשך למחשבון התקציב הביתי
-              </button>
+                {isReadOnly && onBackToBudget && (
+                  <button type="button" className="btn btnPrimary" onClick={onBackToBudget}>
+                    חזרה למחשבון התקציב
+                  </button>
+                )}
+              </div>
+
+              <div className="insightActionsGroup secondary">
+                <button
+                  type="button"
+                  className="btn btnGhost"
+                  onClick={handleResetInsights}
+                >
+                  איפוס התובנות והתחלה מחדש
+                </button>
+
+                {isReadOnly ? (
+                  <div className="insightLockText">
+                    הנתונים ננעלו כדי לשמור על הרצף. תרצה לעדכן אותם? אפשר לאפס כאן ולהתחיל מחדש.
+                  </div>
+                ) : (
+                  <div className="insightHint">אפשר גם לחזור אחורה ולדייק את המספרים.</div>
+                )}
+              </div>
             </div>
           </section>
         )}

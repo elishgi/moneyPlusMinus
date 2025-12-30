@@ -407,6 +407,8 @@ export default function App() {
   const [showBudget, setShowBudget] = useState(awarenessFromStorage.completed);
 
   const [monthLabel, setMonthLabel] = useState(() => {
+    if (awarenessFromStorage.data?.targetMonth) return awarenessFromStorage.data.targetMonth;
+
     const d = new Date();
     return `${d.toLocaleString("he-IL", { month: "long" })} ${d.getFullYear()}`;
   });
@@ -438,7 +440,15 @@ export default function App() {
 
   function handleAwarenessComplete(payload) {
     setAwarenessData(payload);
+    if (payload?.targetMonth) {
+      setMonthLabel(payload.targetMonth);
+    }
     setShowBudget(true);
+  }
+
+  function handleAwarenessReset(payload = defaultAwarenessData) {
+    setAwarenessData(payload);
+    setShowBudget(false);
   }
 
   // טעינה מ-LocalStorage
@@ -583,7 +593,15 @@ export default function App() {
     remaining > 0 ? "pill pillGood" : remaining < 0 ? "pill pillBad" : "pill";
 
   if (!showBudget) {
-    return <AwarenessFlow data={awarenessData} onComplete={handleAwarenessComplete} />;
+    return (
+      <AwarenessFlow
+        data={awarenessData}
+        onComplete={handleAwarenessComplete}
+        locked={awarenessData?.completed}
+        onBackToBudget={() => setShowBudget(true)}
+        onReset={handleAwarenessReset}
+      />
+    );
   }
 
   return (
