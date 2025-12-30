@@ -19,18 +19,34 @@ function formatILS(value) {
   return n.toLocaleString("he-IL", { style: "currency", currency: "ILS" });
 }
 
+function calcItemAmount(item) {
+  if (Array.isArray(item?.details) && item.details.length > 0) {
+    return item.details.reduce((sum, detail) => sum + toNumber(detail.amount), 0);
+  }
+
+  return toNumber(item?.amount);
+}
+
 function calcSum(items) {
-  return items.reduce((sum, item) => sum + toNumber(item.amount), 0);
+  return items.reduce((sum, item) => sum + calcItemAmount(item), 0);
 }
 
 function Section({ title, subtitle, items, setItems, kind }) {
   const isIncome = kind === "income";
 
+  function toggleDetails(id) {
+    setItems((prev) =>
+      prev.map((x) =>
+        x.id === id ? { ...x, showDetails: !x.showDetails } : x
+      )
+    );
+  }
+
   function addRow() {
     const defaultLabel = isIncome ? "משכורת" : "שכירות";
     setItems((prev) => [
       ...prev,
-      { id: uid(), label: defaultLabel, amount: "" },
+      { id: uid(), label: defaultLabel, amount: "", details: [] },
     ]);
   }
 
@@ -41,6 +57,63 @@ function Section({ title, subtitle, items, setItems, kind }) {
   function updateRow(id, patch) {
     setItems((prev) =>
       prev.map((x) => (x.id === id ? { ...x, ...patch } : x))
+    );
+  }
+
+  function syncAmount(details) {
+    const total = calcSum(details);
+    return String(total);
+  }
+
+  function addDetailRow(parentId) {
+    setItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== parentId) return item;
+
+        const nextDetails = [...(item.details || []), { id: uid(), label: "", amount: "" }];
+        return {
+          ...item,
+          details: nextDetails,
+          showDetails: true,
+          amount: syncAmount(nextDetails),
+        };
+      })
+    );
+  }
+
+  function updateDetailRow(parentId, detailId, patch) {
+    setItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== parentId) return item;
+
+        const nextDetails = (item.details || []).map((detail) =>
+          detail.id === detailId ? { ...detail, ...patch } : detail
+        );
+
+        return {
+          ...item,
+          details: nextDetails,
+          amount: syncAmount(nextDetails),
+        };
+      })
+    );
+  }
+
+  function removeDetailRow(parentId, detailId) {
+    setItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== parentId) return item;
+
+        const nextDetails = (item.details || []).filter(
+          (detail) => detail.id !== detailId
+        );
+
+        return {
+          ...item,
+          details: nextDetails,
+          amount: syncAmount(nextDetails),
+        };
+      })
     );
   }
 
@@ -79,11 +152,29 @@ function Section({ title, subtitle, items, setItems, kind }) {
                 className="input"
                 type="number"
                 inputMode="numeric"
-                value={row.amount}
+                value={
+                  Array.isArray(row.details) && row.details.length > 0
+                    ? calcSum(row.details)
+                    : row.amount
+                }
                 placeholder="0"
                 onChange={(e) => updateRow(row.id, { amount: e.target.value })}
+                disabled={!isIncome && Array.isArray(row.details) && row.details.length > 0}
               />
+              {!isIncome && Array.isArray(row.details) && row.details.length > 0 && (
+                <span className="helperText">הסכום מחושב מסך הפריטים בפירוט.</span>
+              )}
             </label>
+
+            {!isIncome && (
+              <button
+                className="btn btnGhost btnSmall"
+                type="button"
+                onClick={() => toggleDetails(row.id)}
+              >
+                {row.showDetails ? "סגור פירוט" : "פירוט"}
+              </button>
+            )}
 
             <button
               className="btn btnDanger"
@@ -94,6 +185,76 @@ function Section({ title, subtitle, items, setItems, kind }) {
             >
               ✕
             </button>
+
+            {!isIncome && row.showDetails && (
+              <div className="detailBox">
+                <div className="detailBoxHeader">
+                  <div className="detailTitle">פירוט עבור {row.label || "הוצאה"}</div>
+                  <div className="detailTotal">סה״כ: {formatILS(calcSum(row.details || []))}</div>
+                </div>
+
+                <div className="detailList">
+                  {(row.details || []).map((detail) => (
+                    <div className="detailRow" key={detail.id}>
+                      <label className="field">
+                        <span className="label">שם פריט</span>
+                        <input
+                          className="input"
+                          type="text"
+                          value={detail.label}
+                          placeholder="למשל: נטפליקס"
+                          onChange={(e) =>
+                            updateDetailRow(row.id, detail.id, {
+                              label: e.target.value,
+                            })
+                          }
+                        />
+                      </label>
+
+                      <label className="field">
+                        <span className="label">סכום (₪)</span>
+                        <input
+                          className="input"
+                          type="number"
+                          inputMode="numeric"
+                          value={detail.amount}
+                          placeholder="0"
+                          onChange={(e) =>
+                            updateDetailRow(row.id, detail.id, {
+                              amount: e.target.value,
+                            })
+                          }
+                        />
+                      </label>
+
+                      <button
+                        className="btn btnDanger btnSmall"
+                        type="button"
+                        aria-label="מחיקת פריט פירוט"
+                        title="מחק פריט"
+                        onClick={() => removeDetailRow(row.id, detail.id)}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+
+                  {(row.details || []).length === 0 && (
+                    <div className="empty">לא הוספת פריטים עדיין.</div>
+                  )}
+
+                  <div className="detailActions">
+                    <button
+                      className="btn btnGhost"
+                      type="button"
+                      onClick={() => addDetailRow(row.id)}
+                    >
+                      + הוסף פריט פירוט
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ))}
 
@@ -114,14 +275,14 @@ export default function App() {
   });
 
   const [incomes, setIncomes] = useState(() => [
-    { id: uid(), label: "משכורת 1", amount: "" },
-    { id: uid(), label: "משכורת 2", amount: "" },
+    { id: uid(), label: "משכורת 1", amount: "", details: [] },
+    { id: uid(), label: "משכורת 2", amount: "", details: [] },
   ]);
 
   const [expenses, setExpenses] = useState(() => [
-    { id: uid(), label: "שכירות", amount: "" },
-    { id: uid(), label: "מנויים", amount: "" },
-    { id: uid(), label: "חשמל / מים", amount: "" },
+    { id: uid(), label: "שכירות", amount: "", details: [] },
+    { id: uid(), label: "מנויים", amount: "", details: [] },
+    { id: uid(), label: "חשמל / מים", amount: "", details: [] },
   ]);
 
   const [didCalculate, setDidCalculate] = useState(false);
@@ -162,13 +323,13 @@ export default function App() {
       return `${d.toLocaleString("he-IL", { month: "long" })} ${d.getFullYear()}`;
     });
     setIncomes([
-      { id: uid(), label: "משכורת 1", amount: "" },
-      { id: uid(), label: "משכורת 2", amount: "" },
+      { id: uid(), label: "משכורת 1", amount: "", details: [] },
+      { id: uid(), label: "משכורת 2", amount: "", details: [] },
     ]);
     setExpenses([
-      { id: uid(), label: "שכירות", amount: "" },
-      { id: uid(), label: "מנויים", amount: "" },
-      { id: uid(), label: "חשמל / מים", amount: "" },
+      { id: uid(), label: "שכירות", amount: "", details: [] },
+      { id: uid(), label: "מנויים", amount: "", details: [] },
+      { id: uid(), label: "חשמל / מים", amount: "", details: [] },
     ]);
     localStorage.removeItem(STORAGE_KEY);
   }

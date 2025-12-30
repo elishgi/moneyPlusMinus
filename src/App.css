@@ -104,6 +104,11 @@
   transition: transform 0.15s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
+.btnSmall {
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
 .btn:active {
   transform: translateY(1px);
 }
@@ -170,9 +175,9 @@
 
 .row {
   display: grid;
-  grid-template-columns: 36px 1.2fr 1fr auto;
+  grid-template-columns: 36px 1.2fr 1fr auto auto;
   gap: 10px;
-  align-items: end;
+  align-items: start;
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -210,6 +215,75 @@
     justify-self: end;
     order: 4;
   }
+
+  .row .btnSmall {
+    width: 100%;
+  }
+}
+
+.helperText {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.detailBox {
+  grid-column: 1 / -1;
+  background: #f9fafc;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.detailBoxHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.detailTitle {
+  font-weight: 700;
+}
+
+.detailTotal {
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+.detailList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.detailRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 10px;
+  align-items: end;
+  padding: 10px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: #fff;
+}
+
+@media (max-width: 640px) {
+  .detailRow {
+    grid-template-columns: 1fr;
+  }
+
+  .detailRow .btnSmall {
+    width: 100%;
+  }
+}
+
+.detailActions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .empty {
