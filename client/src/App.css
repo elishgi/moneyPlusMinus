@@ -439,9 +439,20 @@
   background: rgba(108, 92, 231, 0.05);
 }
 
+.actionButtons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
 @media (max-width: 640px) {
   .summaryActions {
     grid-template-columns: 1fr;
+  }
+
+  .actionButtons {
+    justify-content: flex-start;
   }
 }
 

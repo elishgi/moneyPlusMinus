@@ -376,6 +376,7 @@ export default function App() {
   );
 
   const [didCalculate, setDidCalculate] = useState(false);
+  const [saveState, setSaveState] = useState({ status: "idle", message: "" });
 
   // טעינה מ-LocalStorage
   useEffect(() => {
@@ -465,6 +466,39 @@ export default function App() {
 
   function handleCalculate() {
     setDidCalculate(true);
+  }
+
+  async function handleSaveBudget() {
+    setSaveState({ status: "saving", message: "" });
+
+    try {
+      const response = await fetch("/api/budgets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          monthLabel,
+          totalIncome,
+          totalExpenses: totalExpense,
+          remaining,
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        const message = payload?.message || "שמירת הנתונים נכשלה";
+        throw new Error(message);
+      }
+
+      setSaveState({
+        status: "success",
+        message: "הנתונים נשמרו בהצלחה בבסיס הנתונים.",
+      });
+    } catch (error) {
+      setSaveState({
+        status: "error",
+        message: error.message || "שמירת הנתונים נכשלה.",
+      });
+    }
   }
 
   function resetAll() {
@@ -576,22 +610,38 @@ export default function App() {
             </div>
           </div>
 
-          <div className="summaryActions">
-            <div className="actionCopy">
-              <div className="actionTitle">בדוק את מצב התקציב</div>
-              <p className="actionText">
-                אחרי שהמספרים מוכנים, לחץ על הכפתור כדי לקבל חיווי ברור אם אתה בעודף או במינוס.
-              </p>
-            </div>
+        <div className="summaryActions">
+          <div className="actionCopy">
+            <div className="actionTitle">בדוק את מצב התקציב</div>
+            <p className="actionText">
+              אחרי שהמספרים מוכנים, לחץ על הכפתור כדי לקבל חיווי ברור אם אתה בעודף או במינוס.
+            </p>
+          </div>
 
+          <div className="actionButtons">
             <button className="btn btnPrimary" type="button" onClick={handleCalculate}>
               חשב תקציב
             </button>
+            <button
+              className="btn btnGhost"
+              type="button"
+              onClick={handleSaveBudget}
+              disabled={saveState.status === "saving"}
+            >
+              {saveState.status === "saving" ? "שומר..." : "שמור נתונים"}
+            </button>
           </div>
+        </div>
 
-          {!didCalculate && (
-            <div className="hint">
-              טיפ: הסכומים מתעדכנים בזמן אמת, אבל החיווי הבהיר מופעל אחרי שתלחץ על "חשב תקציב" כאן למטה.
+        {!didCalculate && (
+          <div className="hint">
+            טיפ: הסכומים מתעדכנים בזמן אמת, אבל החיווי הבהיר מופעל אחרי שתלחץ על "חשב תקציב" כאן למטה.
+            </div>
+          )}
+
+          {saveState.status !== "idle" && saveState.message && (
+            <div className={`hint ${saveState.status === "error" ? "pillBad" : "pillGood"}`}>
+              {saveState.message}
             </div>
           )}
 
