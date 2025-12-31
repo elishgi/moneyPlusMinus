@@ -5,6 +5,8 @@ import dotenv from 'dotenv'
 import { connectToDatabase } from './config/database.js'
 import keystrokeRoutes from './routes/keystrokeRoutes.js'
 import budgetRoutes from './routes/budgetRoutes.js'
+import authRoutes from './routes/authRoutes.js'
+import userRoutes from './routes/userRoutes.js'
 
 dotenv.config()
 
@@ -22,6 +24,8 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/keystrokes', keystrokeRoutes)
 app.use('/api/budgets', budgetRoutes)
+app.use('/api/auth', authRoutes)
+app.use('/api/users', userRoutes)
 
 async function startServer() {
   try {

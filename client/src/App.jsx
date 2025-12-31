@@ -1,23 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import AwarenessFlow, { defaultAwarenessData } from "./AwarenessFlow";
+import {
+  fetchUserProfile,
+  loginUser,
+  saveAwareness as saveAwarenessRequest,
+  saveBudget as saveBudgetRequest,
+} from "./api";
 
-const STORAGE_KEY = "budget-landing-v2";
-const AWARENESS_STORAGE_KEY = "budget-awareness-v1";
-
-function loadAwarenessFromStorage() {
-  try {
-    const raw = localStorage.getItem(AWARENESS_STORAGE_KEY);
-    if (!raw) return { data: defaultAwarenessData, completed: false };
-
-    const parsed = JSON.parse(raw);
-    return {
-      data: { ...defaultAwarenessData, ...parsed },
-      completed: Boolean(parsed?.completed),
-    };
-  } catch {
-    return { data: defaultAwarenessData, completed: false };
-  }
-}
+const SESSION_KEY = "budget-user-session";
 
 const defaultIncomeTemplates = [
   { label: "משכורת 1" },
@@ -410,16 +400,18 @@ function Section({
 }
 
 export default function App() {
-  const awarenessFromStorage = useMemo(() => loadAwarenessFromStorage(), []);
-  const [awarenessData, setAwarenessData] = useState(awarenessFromStorage.data);
-  const [showBudget, setShowBudget] = useState(awarenessFromStorage.completed);
+  const [awarenessData, setAwarenessData] = useState(defaultAwarenessData);
+  const [showBudget, setShowBudget] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loginName, setLoginName] = useState("");
+  const [sessionError, setSessionError] = useState("");
+  const [loadingMessage, setLoadingMessage] = useState("טוען נתוני משתמש...");
+  const [isHydrated, setIsHydrated] = useState(false);
 
   const initialMonth = useMemo(() => {
-    if (awarenessFromStorage.data?.targetMonth) return awarenessFromStorage.data.targetMonth;
-
     const d = new Date();
     return `${d.toLocaleString("he-IL", { month: "long" })} ${d.getFullYear()}`;
-  }, [awarenessFromStorage.data]);
+  }, []);
 
   const [selectedMonth, setSelectedMonth] = useState(initialMonth);
 
@@ -448,8 +440,10 @@ export default function App() {
 
   const userDisplayName = useMemo(() => {
     const parts = [awarenessData?.userName, awarenessData?.userLastName].filter(Boolean);
-    return parts.length ? parts.join(" ") : "משתמש";
-  }, [awarenessData]);
+    if (parts.length) return parts.join(" ");
+    if (currentUser?.name) return currentUser.name;
+    return "משתמש";
+  }, [awarenessData, currentUser]);
 
   const todayLabel = useMemo(() => {
     const now = new Date();
@@ -461,10 +455,99 @@ export default function App() {
     });
   }, []);
 
+  function budgetsArrayToMap(budgets = []) {
+    if (!Array.isArray(budgets)) return {};
+
+    return budgets.reduce((acc, budget) => {
+      if (budget?.monthLabel) {
+        acc[budget.monthLabel] = budget;
+      }
+      return acc;
+    }, {});
+  }
+
+  function hydrateFromProfile(profile) {
+    if (!profile?.id) return;
+
+    const nextAwareness = { ...defaultAwarenessData, ...profile.awarenessData };
+    const budgetsMap = budgetsArrayToMap(profile.budgets);
+    const monthToUse =
+      profile.lastSelectedMonth ||
+      nextAwareness.targetMonth ||
+      Object.keys(budgetsMap)[0] ||
+      initialMonth;
+
+    setCurrentUser({ id: profile.id, name: profile.name || "משתמש" });
+    setAwarenessData(nextAwareness);
+    setShowBudget(Boolean(profile.awarenessCompleted));
+    setMonthBudgets(budgetsMap);
+    setSelectedMonth(monthToUse);
+    loadBudgetIntoState(budgetsMap[monthToUse] || buildDefaultBudget());
+    localStorage.setItem(
+      SESSION_KEY,
+      JSON.stringify({ userId: profile.id, name: profile.name })
+    );
+  }
+
   useEffect(() => {
-    const payload = { ...awarenessData, completed: showBudget };
-    localStorage.setItem(AWARENESS_STORAGE_KEY, JSON.stringify(payload));
-  }, [awarenessData, showBudget]);
+    async function loadSession() {
+      const raw = localStorage.getItem(SESSION_KEY);
+      if (!raw) {
+        setIsHydrated(true);
+        setLoadingMessage("");
+        return;
+      }
+
+      try {
+        const session = JSON.parse(raw);
+        if (!session?.userId) throw new Error("missing session");
+        const profile = await fetchUserProfile(session.userId);
+        hydrateFromProfile(profile);
+      } catch (error) {
+        setSessionError("נכשל בטעינת המשתמש. אנא התחבר מחדש.");
+        localStorage.removeItem(SESSION_KEY);
+      } finally {
+        setIsHydrated(true);
+        setLoadingMessage("");
+      }
+    }
+
+    loadSession();
+  }, [initialMonth]);
+
+  async function handleLoginSubmit(event) {
+    event?.preventDefault();
+    if (!loginName.trim()) {
+      setSessionError("יש להזין שם משתמש קצר כדי להמשיך.");
+      return;
+    }
+
+    setSessionError("");
+    setLoadingMessage("מתחבר...");
+    try {
+      const profile = await loginUser(loginName.trim());
+      hydrateFromProfile(profile);
+      setShowBudget(Boolean(profile.awarenessCompleted));
+    } catch (error) {
+      setSessionError(error.message || "התחברות נכשלה");
+    } finally {
+      setIsHydrated(true);
+      setLoadingMessage("");
+    }
+  }
+
+  function handleLogout() {
+    localStorage.removeItem(SESSION_KEY);
+    setCurrentUser(null);
+    setAwarenessData(defaultAwarenessData);
+    setShowBudget(false);
+    setMonthBudgets({});
+    setSelectedMonth(initialMonth);
+    const defaultBudget = buildDefaultBudget();
+    setIncomes(defaultBudget.incomes);
+    setExpenses(defaultBudget.expenses);
+    setPreviousCredit(defaultBudget.previousCredit);
+  }
 
   function handleAwarenessComplete(payload) {
     setAwarenessData(payload);
@@ -472,11 +555,21 @@ export default function App() {
       setSelectedMonth(payload.targetMonth);
     }
     setShowBudget(true);
+    if (currentUser) {
+      saveAwarenessRequest(currentUser.id, payload, true).catch(() => {
+        setSessionError("שמירת שאלון המודעות נכשלה. אנא נסה שוב מאוחר יותר.");
+      });
+    }
   }
 
   function handleAwarenessReset(payload = defaultAwarenessData) {
     setAwarenessData(payload);
     setShowBudget(false);
+    if (currentUser) {
+      saveAwarenessRequest(currentUser.id, payload, false).catch(() => {
+        setSessionError("שמירת איפוס השאלון נכשלה.");
+      });
+    }
   }
 
   const monthOptions = useMemo(() => {
@@ -524,46 +617,36 @@ export default function App() {
     loadBudgetIntoState(nextBudget || buildDefaultBudget());
   }
 
-  // טעינה מ-LocalStorage
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
+    if (!isHydrated) return;
 
-      if (parsed?.budgets && typeof parsed.budgets === "object") {
-        setMonthBudgets(parsed.budgets);
-        const monthToUse = parsed?.selectedMonth || initialMonth;
-        setSelectedMonth(monthToUse);
-        const budget = parsed.budgets[monthToUse] || buildDefaultBudget();
-        loadBudgetIntoState(budget);
-      } else {
-        const fallbackBudget = {
-          incomes: parsed?.incomes,
-          expenses: parsed?.expenses,
-          previousCredit: parsed?.previousCredit,
-        };
+    setMonthBudgets((prev) => ({
+      ...prev,
+      [selectedMonth]: { incomes, expenses, previousCredit },
+    }));
+  }, [incomes, expenses, previousCredit, selectedMonth, isHydrated]);
 
-        setMonthBudgets({ [selectedMonth]: fallbackBudget });
-        loadBudgetIntoState(fallbackBudget);
-      }
-    } catch {
-      // מתעלמים — אם יש JSON לא תקין
-    }
-  }, []);
-
-  // שמירה אוטומטית
   useEffect(() => {
-    setMonthBudgets((prev) => {
-      const nextBudget = { incomes, expenses, previousCredit };
-      const next = { ...prev, [selectedMonth]: nextBudget };
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ selectedMonth, budgets: next })
-      );
-      return next;
-    });
-  }, [selectedMonth, incomes, expenses, previousCredit]);
+    if (!currentUser || !isHydrated) return;
+
+    setSaveState({ status: "saving", message: "שומר נתונים..." });
+    const timer = setTimeout(() => {
+      saveBudgetRequest(currentUser.id, selectedMonth, {
+        incomes,
+        expenses,
+        previousCredit,
+      })
+        .then(() => {
+          setHasSaved(true);
+          setSaveState({ status: "success", message: "הנתונים נשמרו אוטומטית." });
+        })
+        .catch(() => {
+          setSaveState({ status: "error", message: "שמירה לשרת נכשלה. נסו שוב." });
+        });
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [currentUser, incomes, expenses, previousCredit, selectedMonth, isHydrated]);
 
   const totalIncome = useMemo(() => calcSum(incomes), [incomes]);
   const totalPreviousCredit = useMemo(() => calcSum(previousCredit), [previousCredit]);
@@ -645,11 +728,73 @@ export default function App() {
     setCollapsedSections({ income: false, expenses: false, credit: false });
     setSaveState({ status: "idle", message: "" });
     setHasSaved(false);
-    localStorage.removeItem(STORAGE_KEY);
+    setShowBudget(false);
   }
 
   const remainingClass =
     remaining > 0 ? "pill pillGood" : remaining < 0 ? "pill pillBad" : "pill";
+
+  if (!isHydrated) {
+    return (
+      <div className="app">
+        <div className="pageHeading">
+          <div className="titleBlock">
+            <p className="pageKicker">ברוכים הבאים</p>
+            <h1 className="pageTitle">מערכת ניהול תקציב</h1>
+            <p className="cardSub">{loadingMessage || "טוען..."}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <div className="app">
+        <div className="pageHeading">
+          <div className="titleBlock">
+            <p className="pageKicker">כניסה ללא סיסמה</p>
+            <h1 className="pageTitle">התחבר עם השם שלך</h1>
+            <p className="pageMeta">
+              הנתונים יישמרו עבורך גם אחרי רענון הדף או יציאה.
+            </p>
+          </div>
+        </div>
+
+        <main className="content">
+          <section className="card">
+            <div className="cardHeader">
+              <div>
+                <h2 className="cardTitle">שלום! נזהה אותך לפי השם</h2>
+                <p className="cardSub">
+                  אין צורך בסיסמה. הזן שם מלא או כינוי שנוח לך ונשמור את הנתונים עבורך.
+                </p>
+              </div>
+            </div>
+
+            <form className="loginForm" onSubmit={handleLoginSubmit}>
+              <label className="field">
+                <span className="label">שם משתמש</span>
+                <input
+                  className="input"
+                  type="text"
+                  value={loginName}
+                  onChange={(e) => setLoginName(e.target.value)}
+                  placeholder="לדוגמה: ישראל ישראלי"
+                />
+              </label>
+
+              {sessionError && <div className="hint pillBad">{sessionError}</div>}
+
+              <button className="btn btnPrimary" type="submit" disabled={!loginName.trim()}>
+                התחבר
+              </button>
+            </form>
+          </section>
+        </main>
+      </div>
+    );
+  }
 
   if (!showBudget) {
     return (
@@ -683,6 +828,9 @@ export default function App() {
             <button className="btn btnGhost btnSoft" type="button" onClick={resetAll}>
               איפוס
             </button>
+            <button className="btn btnGhost btnSoft" type="button" onClick={handleLogout}>
+              התנתק
+            </button>
           </div>
           <label className="monthSelect">
             <span className="label">בחירת חודש</span>
@@ -700,6 +848,8 @@ export default function App() {
           </label>
         </div>
       </div>
+
+      {sessionError && <div className="hint pillBad">{sessionError}</div>}
 
       <header className={`hero ${hasSaved ? "heroGrid" : "heroSingle"}`}>
         {hasSaved ? (
