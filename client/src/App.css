@@ -36,6 +36,12 @@
   flex-wrap: wrap;
 }
 
+.titleBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .pageKicker {
   margin: 0;
   color: var(--accent-strong);
@@ -49,10 +55,32 @@
   line-height: 1.2;
 }
 
+.pageMeta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .pageActions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.pageButtons {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.monthSelect {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 200px;
 }
 
 .hero {
@@ -66,6 +94,21 @@
   box-shadow: 0 12px 30px rgba(75, 56, 209, 0.1);
   position: relative;
   overflow: hidden;
+}
+
+.heroSingle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+}
+
+.heroSingleContent {
+  width: 100%;
+  max-width: 620px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .hero::before {
@@ -94,6 +137,80 @@
   max-width: 640px;
 }
 
+.heroGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+
+.heroMain {
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(108, 92, 231, 0.25);
+  background: linear-gradient(135deg, rgba(108, 92, 231, 0.08), rgba(255, 255, 255, 0.9));
+  box-shadow: 0 16px 36px rgba(108, 92, 231, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.heroMainCentered {
+  margin: 0 auto;
+  max-width: 720px;
+  text-align: center;
+  align-items: center;
+}
+
+.heroSide {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sideBox {
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(108, 92, 231, 0.2);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: center;
+}
+
+.sideHighlight {
+  background: linear-gradient(135deg, #ffe5b9 0%, #ffc1e8 35%, #88ddff 100%);
+  border: 1px solid rgba(255, 149, 120, 0.65);
+  box-shadow: 0 22px 48px rgba(255, 149, 120, 0.36);
+  color: #1e1728;
+}
+
+.accentBox .sideHelper {
+  color: #2d1f35;
+  font-weight: 700;
+}
+
+.centerBox {
+  text-align: center;
+}
+
+.sideLabel {
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.sideValue {
+  font-size: 28px;
+}
+
+.sideHelper {
+  margin: 0;
+  color: #0b3b32;
+  font-weight: 700;
+}
+
 .heroTitle {
   margin: 0 0 6px;
   font-size: clamp(24px, 6vw, 32px);
@@ -112,38 +229,6 @@
   font-size: 14px;
 }
 
-.heroMonth {
-  min-width: 260px;
-  background: linear-gradient(140deg, rgba(108, 92, 231, 0.12), rgba(32, 191, 169, 0.1));
-  border: 1px solid rgba(108, 92, 231, 0.25);
-  border-radius: 16px;
-  padding: 12px;
-  box-shadow: 0 10px 26px rgba(108, 92, 231, 0.12);
-}
-
-.monthLabel {
-  font-weight: 800;
-  margin-bottom: 6px;
-}
-
-.monthInput {
-  background: rgba(255, 255, 255, 0.9);
-  border-color: rgba(108, 92, 231, 0.35);
-}
-
-.monthInput:disabled {
-  color: #111827;
-  font-weight: 700;
-  background: rgba(255, 255, 255, 0.7);
-  cursor: not-allowed;
-}
-
-.monthHelper {
-  margin-top: 6px;
-  color: var(--muted);
-  font-size: 14px;
-}
-
 .heroMeter {
   margin-top: 10px;
 }
@@ -156,68 +241,6 @@
   align-items: stretch;
 }
 
-.highlightBox {
-  padding: 20px;
-  border-radius: 18px;
-  border: 2px solid rgba(32, 191, 169, 0.3);
-  background: linear-gradient(135deg, rgba(32, 191, 169, 0.12), rgba(255, 255, 255, 0.96));
-  box-shadow: 0 18px 45px rgba(32, 191, 169, 0.25);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.highlightPrimary {
-  position: relative;
-  overflow: hidden;
-  background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.95), rgba(108, 92, 231, 0.18)),
-    linear-gradient(145deg, rgba(32, 191, 169, 0.24), rgba(108, 92, 231, 0.16));
-  border: 2px solid rgba(32, 191, 169, 0.35);
-  box-shadow: 0 24px 55px rgba(108, 92, 231, 0.24);
-}
-
-.highlightPrimary::after {
-  content: "";
-  position: absolute;
-  inset: -30% -10% auto;
-  height: 120px;
-  background: radial-gradient(circle at 30% 50%, rgba(255, 255, 255, 0.42), transparent 45%);
-  pointer-events: none;
-}
-
-.highlightLabel {
-  font-weight: 900;
-  font-size: 15px;
-  letter-spacing: 0.2px;
-}
-
-.highlightValue {
-  font-size: 32px;
-}
-
-.highlightValue .pill {
-  font-size: 24px;
-  padding: 12px 20px;
-  box-shadow: 0 10px 24px rgba(108, 92, 231, 0.28);
-  border: 2px solid rgba(108, 92, 231, 0.35);
-}
-
-.highlightText {
-  margin: 0;
-  color: #0b3b32;
-  font-weight: 700;
-}
-
-@media (min-width: 900px) {
-  .highlightPrimary {
-    grid-column: span 2;
-  }
-}
-
-.nextStepWrapper {
-  display: flex;
-  align-items: stretch;
-}
 
 .nextStepBox {
   margin-top: 4px;
@@ -236,10 +259,24 @@
   width: 100%;
 }
 
-.nextStepBox:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 16px 36px rgba(108, 92, 231, 0.16);
+.ctaButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: linear-gradient(120deg, #6c5ce7, #20bfa9);
+  color: #fff;
+  font-weight: 800;
+  text-decoration: none;
+  border: 1px solid rgba(108, 92, 231, 0.35);
+  box-shadow: 0 16px 30px rgba(108, 92, 231, 0.28);
+  text-align: center;
+  width: 100%;
+  min-height: 56px;
+  font-size: 17px;
 }
+
 
 .nextStepLabel {
   font-weight: 800;
@@ -324,6 +361,11 @@
   background: rgba(108, 92, 231, 0.08);
   color: var(--accent-strong);
   border: 1px solid rgba(108, 92, 231, 0.18);
+}
+
+.btnSoft {
+  border-radius: 14px;
+  background: radial-gradient(circle at 10% 20%, rgba(108, 92, 231, 0.1), rgba(32, 191, 169, 0.08));
 }
 
 .btnDanger {
