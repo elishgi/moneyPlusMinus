@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import AwarenessFlow, { defaultAwarenessData } from "./AwarenessFlow";
 
-const STORAGE_KEY = "budget-landing-v1";
+const STORAGE_KEY = "budget-landing-v2";
 const AWARENESS_STORAGE_KEY = "budget-awareness-v1";
 
 function loadAwarenessFromStorage() {
@@ -110,6 +110,14 @@ function buildDefaultItems(templates) {
     details: [],
     lockDetails: Boolean(template.lockDetails),
   }));
+}
+
+function buildDefaultBudget() {
+  return {
+    incomes: buildDefaultItems(defaultIncomeTemplates),
+    expenses: buildDefaultItems(defaultExpenseTemplates),
+    previousCredit: buildDefaultItems(defaultCreditTemplates),
+  };
 }
 
 function Section({
@@ -406,12 +414,14 @@ export default function App() {
   const [awarenessData, setAwarenessData] = useState(awarenessFromStorage.data);
   const [showBudget, setShowBudget] = useState(awarenessFromStorage.completed);
 
-  const [monthLabel, setMonthLabel] = useState(() => {
+  const initialMonth = useMemo(() => {
     if (awarenessFromStorage.data?.targetMonth) return awarenessFromStorage.data.targetMonth;
 
     const d = new Date();
     return `${d.toLocaleString("he-IL", { month: "long" })} ${d.getFullYear()}`;
-  });
+  }, [awarenessFromStorage.data]);
+
+  const [selectedMonth, setSelectedMonth] = useState(initialMonth);
 
   const [incomes, setIncomes] = useState(() =>
     buildDefaultItems(defaultIncomeTemplates)
@@ -424,6 +434,8 @@ export default function App() {
   const [previousCredit, setPreviousCredit] = useState(() =>
     buildDefaultItems(defaultCreditTemplates)
   );
+
+  const [monthBudgets, setMonthBudgets] = useState({});
 
   const [didCalculate, setDidCalculate] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState({
@@ -448,8 +460,6 @@ export default function App() {
     });
   }, []);
 
-  const isMonthLocked = Boolean(awarenessData?.targetMonth);
-
   useEffect(() => {
     const payload = { ...awarenessData, completed: showBudget };
     localStorage.setItem(AWARENESS_STORAGE_KEY, JSON.stringify(payload));
@@ -458,7 +468,7 @@ export default function App() {
   function handleAwarenessComplete(payload) {
     setAwarenessData(payload);
     if (payload?.targetMonth) {
-      setMonthLabel(payload.targetMonth);
+      setSelectedMonth(payload.targetMonth);
     }
     setShowBudget(true);
   }
@@ -468,6 +478,51 @@ export default function App() {
     setShowBudget(false);
   }
 
+  const monthOptions = useMemo(() => {
+    const now = new Date();
+    const generated = Array.from({ length: 12 }, (_, idx) => {
+      const d = new Date(now.getFullYear(), now.getMonth() + idx, 1);
+      return `${d.toLocaleString("he-IL", { month: "long" })} ${d.getFullYear()}`;
+    });
+
+    const existing = Object.keys(monthBudgets || {});
+    const combined = [
+      ...generated,
+      ...existing,
+      awarenessData?.targetMonth,
+      selectedMonth,
+    ].filter(Boolean);
+
+    return Array.from(new Set(combined));
+  }, [awarenessData?.targetMonth, monthBudgets, selectedMonth]);
+
+  function loadBudgetIntoState(budget) {
+    setIncomes(() =>
+      normalizeItems(
+        budget?.incomes,
+        () => buildDefaultItems(defaultIncomeTemplates)
+      )
+    );
+    setExpenses(() =>
+      normalizeItems(
+        budget?.expenses,
+        () => buildDefaultItems(defaultExpenseTemplates)
+      )
+    );
+    setPreviousCredit(() =>
+      normalizeItems(
+        budget?.previousCredit,
+        () => buildDefaultItems(defaultCreditTemplates)
+      )
+    );
+  }
+
+  function handleMonthChange(value) {
+    setSelectedMonth(value);
+    const nextBudget = monthBudgets[value];
+    loadBudgetIntoState(nextBudget || buildDefaultBudget());
+  }
+
   // טעינה מ-LocalStorage
   useEffect(() => {
     try {
@@ -475,19 +530,22 @@ export default function App() {
       if (!raw) return;
       const parsed = JSON.parse(raw);
 
-      if (parsed?.monthLabel) setMonthLabel(parsed.monthLabel);
+      if (parsed?.budgets && typeof parsed.budgets === "object") {
+        setMonthBudgets(parsed.budgets);
+        const monthToUse = parsed?.selectedMonth || initialMonth;
+        setSelectedMonth(monthToUse);
+        const budget = parsed.budgets[monthToUse] || buildDefaultBudget();
+        loadBudgetIntoState(budget);
+      } else {
+        const fallbackBudget = {
+          incomes: parsed?.incomes,
+          expenses: parsed?.expenses,
+          previousCredit: parsed?.previousCredit,
+        };
 
-      setIncomes(() =>
-        normalizeItems(parsed?.incomes, () => buildDefaultItems(defaultIncomeTemplates))
-      );
-      setExpenses(() =>
-        normalizeItems(parsed?.expenses, () => buildDefaultItems(defaultExpenseTemplates))
-      );
-      setPreviousCredit(() =>
-        normalizeItems(parsed?.previousCredit, () =>
-          buildDefaultItems(defaultCreditTemplates)
-        )
-      );
+        setMonthBudgets({ [selectedMonth]: fallbackBudget });
+        loadBudgetIntoState(fallbackBudget);
+      }
     } catch {
       // מתעלמים — אם יש JSON לא תקין
     }
@@ -495,9 +553,16 @@ export default function App() {
 
   // שמירה אוטומטית
   useEffect(() => {
-    const payload = { monthLabel, incomes, expenses, previousCredit };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  }, [monthLabel, incomes, expenses, previousCredit]);
+    setMonthBudgets((prev) => {
+      const nextBudget = { incomes, expenses, previousCredit };
+      const next = { ...prev, [selectedMonth]: nextBudget };
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ selectedMonth, budgets: next })
+      );
+      return next;
+    });
+  }, [selectedMonth, incomes, expenses, previousCredit]);
 
   const totalIncome = useMemo(() => calcSum(incomes), [incomes]);
   const totalPreviousCredit = useMemo(() => calcSum(previousCredit), [previousCredit]);
@@ -569,13 +634,12 @@ export default function App() {
 
   function resetAll() {
     setDidCalculate(false);
-    setMonthLabel(() => {
-      const d = new Date();
-      return `${d.toLocaleString("he-IL", { month: "long" })} ${d.getFullYear()}`;
-    });
-    setIncomes(buildDefaultItems(defaultIncomeTemplates));
-    setExpenses(buildDefaultItems(defaultExpenseTemplates));
-    setPreviousCredit(buildDefaultItems(defaultCreditTemplates));
+    setSelectedMonth(initialMonth);
+    const defaultBudget = buildDefaultBudget();
+    setIncomes(defaultBudget.incomes);
+    setExpenses(defaultBudget.expenses);
+    setPreviousCredit(defaultBudget.previousCredit);
+    setMonthBudgets({});
     setCollapsedSections({ income: false, expenses: false, credit: false });
     localStorage.removeItem(STORAGE_KEY);
   }
@@ -598,14 +662,30 @@ export default function App() {
   return (
     <div className="app">
       <div className="pageHeading">
-        <div>
-          <p className="pageKicker">מחשבון תקציב ביתי</p>
-          <h1 className="pageTitle">
-            {userDisplayName} · {todayLabel}
-          </h1>
+        <div className="titleBlock">
+          <p className="pageKicker">ברוכים הבאים</p>
+          <h1 className="pageTitle">מערכת ניהול תקציב</h1>
+          <div className="pageMeta">
+            <span className="pill glass">{userDisplayName}</span>
+            <span className="pill glass">{todayLabel}</span>
+          </div>
         </div>
 
         <div className="pageActions">
+          <label className="monthSelect">
+            <span className="label">בחירת חודש</span>
+            <select
+              className="input"
+              value={selectedMonth}
+              onChange={(e) => handleMonthChange(e.target.value)}
+            >
+              {monthOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
           <button className="btn btnGhost" type="button" onClick={() => setShowBudget(false)}>
             חזרה לשאלון מודעות
           </button>
@@ -615,68 +695,42 @@ export default function App() {
         </div>
       </div>
 
-      <header className="hero">
-        <div className="heroTop">
-          <div className="heroIntro">
-            <h2 className="heroTitle">כמה נשאר לך להמשך החודש אחרי ההוצאות הקבועות</h2>
-            <p className="heroText">
-              מטרת הדף היא לחשב עבורך את המסגרת הפנויה אחרי שהורדת את כל ההוצאות הקבועות,
-              כדי שתיגש להוצאות המשתנות כשברור לך כמה נשאר.
-            </p>
-          </div>
-
-          <div className="heroMonth">
-            <div className="monthLabel">חודש</div>
-            <input
-              className="input monthInput"
-              type="text"
-              value={monthLabel}
-              onChange={(e) => setMonthLabel(e.target.value)}
-              placeholder="למשל: דצמבר 2025"
-              readOnly={isMonthLocked}
-              disabled={isMonthLocked}
-            />
-            <div className="monthHelper">
-              {!isMonthLocked
-                ? "אם תרצה לעדכן חודש, עשה זאת כאן."
-                : "החודש נקבע מתוך שאלון המודעות ולכן אינו ניתן לעריכה כאן."}
-            </div>
-          </div>
+      <header className="hero heroGrid">
+        <div className="heroMain">
+          <h2 className="heroTitle">כמה נשאר לך להמשך החודש אחרי ההוצאות הקבועות</h2>
+          <p className="heroText">
+            מטרת הדף היא לחשב עבורך את המסגרת הפנויה אחרי שהורדת את כל ההוצאות הקבועות,
+            כדי שתיגש להוצאות המשתנות כשברור לך כמה נשאר.
+          </p>
+          <p className="heroSmall">
+            הנתונים של {selectedMonth} נשמרים עבורך. בכל מעבר לחודש אחר תוכל לראות את הנתונים שהזנת עבורו.
+          </p>
         </div>
 
-        {didCalculate && (
-          <div className="heroHighlights">
-            <div className="highlightBox highlightPrimary">
-              <div className="highlightLabel">כמה נשאר לחודש אחרי ההוצאות הקבועות</div>
-              <div className="highlightValue">
-                <span className={remainingClass}>{formatILS(remaining)}</span>
-              </div>
-              <p className="highlightText">המסגרת המעודכנת שמראה כמה כסף נשאר לך להוצאות המשתנות אחרי שחישבת את כל הקבועות.</p>
+        <div className="heroSide">
+          <div className="sideBox sideHighlight">
+            <div className="sideLabel">כמה נשאר אחרי ההוצאות הקבועות</div>
+            <div className="sideValue">
+              <span className={remainingClass}>{formatILS(remaining)}</span>
+            </div>
+            <p className="sideHelper">הסכום הזמין להוצאות המשתנות בחודש הנבחר.</p>
+          </div>
+
+          <div className="sideBox nextStepBox">
+            <div>
+              <div className="nextStepLabel">מעבר לכסף הנזיל</div>
+              <p className="nextStepText">
+                ממשיכים לתעד הכנסות והוצאות שוטפות כשברור כמה נשאר אחרי ההוצאות הקבועות.
+              </p>
             </div>
 
-            <div className="nextStepWrapper">
-              <a
-                className="nextStepBox"
-                href="/tracking"
-                target="_blank"
-                rel="noreferrer"
-              >
-                <div>
-                  <div className="nextStepLabel">יומן הכנסות והוצאות שוטפות</div>
-                  <p className="nextStepText">
-                    ממשיכים מכאן לתעד הוצאות והכנסות שוטפות, כשבראש ברור שהמסגרת היא מה שנשאר אחרי ההוצאות הקבועות שחישבת.
-                  </p>
-                </div>
-
-                <div className="nextStepAction">
-                  <span className="btn btnPrimary btnSmall" type="button">
-                    המשך ליומן
-                  </span>
-                </div>
+            <div className="nextStepAction">
+              <a className="btn btnPrimary btnSmall" href="/tracking" target="_blank" rel="noreferrer">
+                מעבר ליומן
               </a>
             </div>
           </div>
-        )}
+        </div>
       </header>
 
       <main className="content">
@@ -738,7 +792,7 @@ export default function App() {
               <h2 className="cardTitle">סיכום</h2>
               <p className="cardSub">תמונה צבעונית ומהירה של הכנסות מול הוצאות.</p>
             </div>
-            <div className="pill glass">{monthLabel}</div>
+            <div className="pill glass">{selectedMonth}</div>
           </div>
 
           <div className="summary">
